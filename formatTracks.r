@@ -1,10 +1,11 @@
 # Compare "Known" Positions to Other Traditional Outputs
 
 
-formatTracks <- function(trackDir, ptt, gpeNo){
+formatTracks <- function(trackDir, ptt, gpeNo, knock=FALSE){
 
   # lazy load workspace file to get objects that aren't written indiv to disk
   # convert .RData -> .rdb/.rdx
+  print('If you receive a database corrupt error, restart your R session. Try .rs.restartR()')
   e <- local({load(paste(trackDir, '/', ptt, '_traditional_geo.RData', sep='')); environment()})
   tools:::makeLazyLoadDB(e, "New")
   lazyLoad("New")
@@ -30,6 +31,7 @@ formatTracks <- function(trackDir, ptt, gpeNo){
 
   # TI + B: trim to 1 pos daily
   tib <- read.table(paste(ptt, '_fit_btrack.csv', sep=''), sep=',', header=T)
+  if(any(tib$Lon_E > 180)) tib$Lon_E <- tib$Lon_E - 360
   tib <- tib[idx,]
 
   # KF: trim to 1 pos daily, lon - 360
@@ -50,10 +52,15 @@ formatTracks <- function(trackDir, ptt, gpeNo){
   gpedates <- as.Date(gpe$Date, format='%d-%b-%Y %H:%M:%S')
   gpe.idx <- which(!duplicated(gpedates) & gpedates <= end & gpedates >= strt)
   gpedates <- gpedates[gpe.idx]
-  gpecoords <- gpe[gpe.idx, c(5:4)]
+  crd.idx <- c(grep('lon', names(gpe), ignore.case=T), grep('lat', names(gpe), ignore.case=T))
+  gpecoords <- gpe[gpe.idx, crd.idx]
 
   # HMMoce
-  hmm <- read.table(paste(ptt, '_HMM_track.csv', sep=''), sep=',', header = T)
+  if(knock){
+    hmm <- read.table(paste(ptt, '_HMM_track_knock.csv', sep=''), sep=',', header = T)
+  } else{
+    hmm <- read.table(paste(ptt, '_HMM_track.csv', sep=''), sep=',', header = T)
+  }
   hmm.dates <- as.Date(hmm$date)
 
   # having a df with one row for each day and cols for each track type would be nice.
@@ -61,8 +68,8 @@ formatTracks <- function(trackDir, ptt, gpeNo){
   # pull corresponding var for CI
   df <- as.data.frame(dates)
   df[,2:19] <- NA
-  print(str(df))
-  print(str(which(dates %in% tidates)))
+  #print(str(df))
+  #print(str(which(dates %in% tidates)))
   df[which(dates %in% tidates), 2:3] <- ticoords
   df[which(dates %in% tidates), 4:5] <- ti.var
   df[which(dates %in% tidates), 6:7] <- tib[,c(8:9)]
