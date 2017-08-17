@@ -350,7 +350,7 @@ if (enterAt == 3){
         s <- HMMoce::hmm.smoother(f, K1, K2, L, P.final)
         
         # GET THE MOST PROBABLE TRACK
-        tr <- HMMoce::calc.track(s, g, dateVec)
+        tr <- HMMoce::calc.track(s, g, dateVec, iniloc)
         setwd(myDir)
         
         # WRITE OUT RESULTS
@@ -375,6 +375,7 @@ if (enterAt == 3){
   
   
   parallel::stopCluster(cl)
+  closeAllConnections()
   
 }
 
