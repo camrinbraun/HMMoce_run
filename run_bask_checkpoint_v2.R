@@ -34,7 +34,7 @@ meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T
 likVec=c(1,2,3,4,5)
 
 #for (ii in 1:nrow(meta)){ #nextAnimal
-ii = 29
+ii = 30
 ptt <- meta$PTT[ii] #nextAnimal
 
 # set an area of interest for a particular individual in the resample.grid function using:
@@ -159,7 +159,7 @@ if (enterAt == 2){
   #----------------------------------------------------------------------------------#
   if (any(likVec == 1) & !exists('L.1')){
     #L.1 <- calc.srss(light, locs.grid = locs.grid, dateVec = dateVec, res=0.25)
-    L.1 <- calc.gpe2(locs, locDates, iniloc = iniloc, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE, gpeOnly = TRUE)
+    L.1 <- calc.gpe2(locs, locDates, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE, gpeOnly = TRUE)
     #raster::cellStats(L.1, 'max')
   }
   
@@ -213,7 +213,7 @@ if (enterAt == 2){
   
   if (any(likVec == 4) & !exists('L.4')){
     load('~/ebs/EnvData/woa/woa.quarter.rda')
-    L.4 <- calc.woa.par(pdt, ptt=ptt, woa.data = woa.quarter, focalDim = 9, dateVec = dateVec, use.se = T, ncores=parallel::detectCores()-2)
+    L.4 <- calc.woa.par(pdt, ptt=ptt, woa.data = woa.quarter, sp.lim=sp.lim, focalDim = 9, dateVec = dateVec, use.se = T, ncores=parallel::detectCores()-2)
     # checkpoint each big L calculation step
     if (exists('L.4')){
       woa.se <- T
@@ -347,10 +347,10 @@ if (enterAt == 3){
         nllf <- -sum(log(f$psi[f$psi>0]))
         
         # RUN THE SMOOTHING STEP
-        s <- HMMoce::hmm.smoother(f, K1, K2, L, P.final)
+        s <- hmm.smoother(f, K1, K2, L, P.final)
         
         # GET THE MOST PROBABLE TRACK
-        tr <- HMMoce::calc.track(s, g, dateVec, iniloc)
+        tr <- calc.track(s, g, dateVec, iniloc)
         setwd(myDir)
         
         # WRITE OUT RESULTS
