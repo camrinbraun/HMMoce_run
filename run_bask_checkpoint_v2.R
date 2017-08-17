@@ -1,4 +1,4 @@
-library(HMMoce)
+#library(HMMoce)
 #setwd('~/HMMoce/'); devtools::load_all()
 dataDir <- '~/ebs/Data/BaskingSharks/batch/'
 envDir <- '~/ebs/EnvData/'
@@ -13,10 +13,10 @@ str(bask.lims)
 # add this spec to meta
 
 # aws credentials for reading s3
-Sys.setenv("AWS_ACCESS_KEY_ID" = aws.signature::locate_credentials()[[1]],
-           "AWS_SECRET_ACCESS_KEY" = aws.signature::locate_credentials()[[2]],
-           "AWS_DEFAULT_REGION" = aws.signature::locate_credentials()[[4]])
-library(aws.s3)
+#Sys.setenv("AWS_ACCESS_KEY_ID" = aws.signature::locate_credentials()[[1]],
+##           "AWS_SECRET_ACCESS_KEY" = aws.signature::locate_credentials()[[2]],
+#           "AWS_DEFAULT_REGION" = aws.signature::locate_credentials()[[4]])
+#library(aws.s3)
 #bucketlist()
 
 # which of L.idx combinations do you want to run?
@@ -34,7 +34,7 @@ meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T
 likVec=c(1,2,3,4,5)
 
 #for (ii in 1:nrow(meta)){ #nextAnimal
-ii = 37
+ii = 29
 ptt <- meta$PTT[ii] #nextAnimal
 
 # set an area of interest for a particular individual in the resample.grid function using:
@@ -292,7 +292,7 @@ if (enterAt == 2){
 } 
 
 if (enterAt == 3){
-  
+  myDir <- paste(dataDir, ptt, '/', sep='')
   setwd(myDir); load('check2.rda')
   
   #optim function here
