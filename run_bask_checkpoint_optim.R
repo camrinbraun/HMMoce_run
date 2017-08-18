@@ -1,6 +1,6 @@
 
 
-for (ii in 1:nrow(meta)){
+for (ii in 2:nrow(meta)){
   dataDir <- '~/ebs/Data/BaskingSharks/batch/'
   envDir <- '~/ebs/EnvData/'
   sst.dir <- '~/ebs/EnvData/sst/BaskingSharks/'
@@ -30,7 +30,7 @@ for (ii in 1:nrow(meta)){
   
   fileList <- list.files()
   
-  if (length(grep('_res.rda', fileList)) == 18){
+  if (length(grep('_res.rda', fileList)) >= 18){
     
   } else{
     load('check2.rda')
@@ -121,6 +121,7 @@ for (ii in 1:nrow(meta)){
     closeAllConnections()
     
   }
+  rm(list=ls())
 }
 
 setwd(myDir); load('check2.rda')
