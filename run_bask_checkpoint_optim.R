@@ -45,7 +45,7 @@ for (ii in 1:nrow(meta)){
     cl = parallel::makeCluster(ncores)
     doParallel::registerDoParallel(cl, cores = ncores)
     
-    ans = foreach::foreach(tt = 1:run.idx[length(run.idx)-1]) %dopar%{
+    ans = foreach::foreach(tt = run.idx) %dopar%{
       #setwd('~/HMMoce'); devtools::load_all()
       #setwd(myDir)
       #library(HMMoce)
