@@ -1,117 +1,130 @@
 
-dataDir <- '~/ebs/Data/BaskingSharks/batch/'
-envDir <- '~/ebs/EnvData/'
-sst.dir <- '~/ebs/EnvData/sst/BaskingSharks/'
-hycom.dir <- '~/ebs/EnvData/hycom3/BaskingSharks/'
-statusVec <- NA
-bucketDir <- 'braun-data/Data/BaskingSharks/batch'
 
-load('~/ebs/Data/BaskingSharks/batch/bask_lims.rda')
-str(bask.lims)
-
-# which of L.idx combinations do you want to run?
-run.idx <- c(1,2,4,7,11,13)
-
-# vector of appropriate bounding in filter
-bndVec <- c(NA, 5, 10)
-
-# vector of appropriate migr kernel speed
-parVec <- c(2, 4)
-
-setwd(dataDir)
-meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
-likVec=c(1,2,3,4,5)
-
-ii = nrow(meta)
-ptt <- meta$PTT[ii] #nextAnimal
-myDir <- paste(dataDir, ptt, '/', sep='')
+for (ii in 1:nrow(meta)){
+  dataDir <- '~/ebs/Data/BaskingSharks/batch/'
+  envDir <- '~/ebs/EnvData/'
+  sst.dir <- '~/ebs/EnvData/sst/BaskingSharks/'
+  hycom.dir <- '~/ebs/EnvData/hycom3/BaskingSharks/'
+  statusVec <- NA
+  bucketDir <- 'braun-data/Data/BaskingSharks/batch'
+  
+  load('~/ebs/Data/BaskingSharks/batch/bask_lims.rda')
+  str(bask.lims)
+  
+  # which of L.idx combinations do you want to run?
+  run.idx <- c(1,2,4,7,11,13)
+  
+  # vector of appropriate bounding in filter
+  bndVec <- c(NA, 5, 10)
+  
+  # vector of appropriate migr kernel speed
+  parVec <- c(2, 4)
+  
+  setwd(dataDir)
+  meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
+  likVec=c(1,2,3,4,5)
+  
+  ptt <- meta$PTT[ii] #nextAnimal
+  myDir <- paste(dataDir, ptt, '/', sep='')
+  setwd(myDir)
+  
+  fileList <- list.files()
+  
+  if (length(grep('_res.rda', fileList)) == 18){
+    
+  } else{
+    load('check2.rda')
+    
+    bathy <- raster::raster('~/ebs/EnvData/bathy/BaskingSharks/bask_bathy_small.grd')
+    #optim function here
+    
+    # BEGIN PARALLEL STUFF  
+    require(foreach)
+    print('Processing in parallel... ')
+    ncores <- ceiling(parallel::detectCores() * .25)
+    cl = parallel::makeCluster(ncores)
+    doParallel::registerDoParallel(cl, cores = ncores)
+    
+    ans = foreach::foreach(tt = 1:run.idx[length(run.idx)-1]) %dopar%{
+      #setwd('~/HMMoce'); devtools::load_all()
+      #setwd(myDir)
+      #library(HMMoce)
+      #for (tt in run.idx){
+      for (bnd in bndVec){
+        for (i in parVec){
+          
+          runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i,sep='')
+          
+          #----------------------------------------------------------------------------------#
+          # COMBINE LIKELIHOOD MATRICES
+          #----------------------------------------------------------------------------------#
+          L <- HMMoce::make.L(L1 = L.res[[1]][L.idx[[tt]]],
+                              L.mle.res = L.res$L.mle.res, dateVec = dateVec,
+                              locs.grid = locs.grid, iniloc = iniloc, bathy = bathy,
+                              pdt = pdt)
+          L.mle <- L$L.mle
+          L <- L$L
+          g <- L.res$g
+          g.mle <- L.res$g.mle
+          lon <- g$lon[1,]
+          lat <- g$lat[,1]
+          
+          # GET MOVEMENT KERNELS AND SWITCH PROB FOR COARSE GRID
+          par0 <- makePar(migr.spd=i, grid=g.mle, L.arr=L.mle, p.guess=c(.9,.9), calcP=T)
+          #K1 <- par0$K1; K2 <- par0$K2; 
+          P.final <- par0$P.final
+          
+          # GET MOVEMENT KERNELS AND SWITCH PROB FOR FINER GRID
+          par0 <- makePar(migr.spd=i, grid=g, L.arr=L, p.guess=c(.9,.9), calcP=F)
+          K1 <- par0$K1; K2 <- par0$K2; #P.final <- par0$P.final
+          
+          # RUN THE FILTER STEP
+          if(!is.na(bnd)){
+            f <- hmm.filter(g, L, K1, K2, maskL=T, P.final, minBounds = bnd)
+            maskL.logical <- TRUE
+          } else{
+            f <- hmm.filter(g, L, K1, K2, P.final, maskL=F)
+            maskL.logical <- FALSE
+          }
+          nllf <- -sum(log(f$psi[f$psi>0]))
+          
+          # RUN THE SMOOTHING STEP
+          s <- hmm.smoother(f, K1, K2, L, P.final)
+          
+          # GET THE MOST PROBABLE TRACK
+          tr <- calc.track(s, g, dateVec, iniloc)
+          setwd(myDir); plotHMM(s, tr, dateVec, ptt=runName, save.plot = T)
+          
+          
+          # WRITE OUT RESULTS
+          outVec <- matrix(c(ptt=ptt, minBounds = bnd, migr.spd = i,
+                             Lidx = paste(L.idx[[tt]],collapse=''), P1 = P.final[1,1], P2 = P.final[2,2],
+                             spLims = sp.lim[1:4], resol = raster::res(L.rasters[[resamp.idx]]),
+                             maskL = maskL.logical, NLL = nllf, name = runName), ncol=15)
+          #write.table(outVec,paste(dataDir, 'outVec_results.csv', sep=''), sep=',', col.names=F, append=T)
+          #names(outVec) <- c('ptt','bnd','migr.spd','Lidx','P1','P2','spLims','resol','maskL','nll','name')
+          res <- list(outVec = outVec, s = s, g = g, tr = tr, dateVec = dateVec, iniloc = iniloc, grid = raster::res(L.res[[1]]$L.5)[1])
+          setwd(myDir); save(res, file=paste(runName, '-HMMoce_res.rda', sep=''))
+          #save.image(file=paste(ptt, '-HMMoce.RData', sep=''))
+          #aws.s3::s3save(res, bucket=paste(bucketDir, '/', ptt, sep=''), object=paste(runName, '-HMMoce_res.rda', sep=''))
+          #source('~/HMMoce/R/hmm.diagnose.r')
+          #hmm.diagnose(res, L.idx, L.res, dateVec, locs.grid, iniloc, bathy, pdt, plot=T)
+          
+          outVec <- outVec
+          
+        } # parVec loop
+      } # bndVec loop
+    } # L.idx loop
+    
+    
+    parallel::stopCluster(cl)
+    closeAllConnections()
+    
+  }
+}
 
 setwd(myDir); load('check2.rda')
 
-bathy <- raster::raster('~/ebs/EnvData/bathy/BaskingSharks/bask_bathy_small.grd')
-#optim function here
-
-# BEGIN PARALLEL STUFF  
-require(foreach)
-print('Processing in parallel... ')
-ncores <- ceiling(parallel::detectCores() * .25)
-cl = parallel::makeCluster(ncores)
-doParallel::registerDoParallel(cl, cores = ncores)
-
-ans = foreach::foreach(tt = run.idx[length(run.idx)]) %dopar%{
-  #setwd('~/HMMoce'); devtools::load_all()
-  #setwd(myDir)
-  #library(HMMoce)
-  #for (tt in run.idx){
-  for (bnd in bndVec){
-    for (i in parVec){
-      
-      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i,sep='')
-      
-      #----------------------------------------------------------------------------------#
-      # COMBINE LIKELIHOOD MATRICES
-      #----------------------------------------------------------------------------------#
-      L <- HMMoce::make.L(L1 = L.res[[1]][L.idx[[tt]]],
-                          L.mle.res = L.res$L.mle.res, dateVec = dateVec,
-                          locs.grid = locs.grid, iniloc = iniloc, bathy = bathy,
-                          pdt = pdt)
-      L.mle <- L$L.mle
-      L <- L$L
-      g <- L.res$g
-      g.mle <- L.res$g.mle
-      lon <- g$lon[1,]
-      lat <- g$lat[,1]
-      
-      # GET MOVEMENT KERNELS AND SWITCH PROB FOR COARSE GRID
-      par0 <- makePar(migr.spd=i, grid=g.mle, L.arr=L.mle, p.guess=c(.9,.9), calcP=T)
-      #K1 <- par0$K1; K2 <- par0$K2; 
-      P.final <- par0$P.final
-      
-      # GET MOVEMENT KERNELS AND SWITCH PROB FOR FINER GRID
-      par0 <- makePar(migr.spd=i, grid=g, L.arr=L, p.guess=c(.9,.9), calcP=F)
-      K1 <- par0$K1; K2 <- par0$K2; #P.final <- par0$P.final
-      
-      # RUN THE FILTER STEP
-      if(!is.na(bnd)){
-        f <- hmm.filter(g, L, K1, K2, maskL=T, P.final, minBounds = bnd)
-        maskL.logical <- TRUE
-      } else{
-        f <- hmm.filter(g, L, K1, K2, P.final, maskL=F)
-        maskL.logical <- FALSE
-      }
-      nllf <- -sum(log(f$psi[f$psi>0]))
-      
-      # RUN THE SMOOTHING STEP
-      s <- hmm.smoother(f, K1, K2, L, P.final)
-      
-      # GET THE MOST PROBABLE TRACK
-      tr <- calc.track(s, g, dateVec, iniloc)
-      setwd(myDir); plotHMM(s, tr, dateVec, ptt=runName, save.plot = T)
-      
-      
-      # WRITE OUT RESULTS
-      outVec <- matrix(c(ptt=ptt, minBounds = bnd, migr.spd = i,
-                         Lidx = paste(L.idx[[tt]],collapse=''), P1 = P.final[1,1], P2 = P.final[2,2],
-                         spLims = sp.lim[1:4], resol = raster::res(L.rasters[[resamp.idx]]),
-                         maskL = maskL.logical, NLL = nllf, name = runName), ncol=15)
-      #write.table(outVec,paste(dataDir, 'outVec_results.csv', sep=''), sep=',', col.names=F, append=T)
-      #names(outVec) <- c('ptt','bnd','migr.spd','Lidx','P1','P2','spLims','resol','maskL','nll','name')
-      res <- list(outVec = outVec, s = s, g = g, tr = tr, dateVec = dateVec, iniloc = iniloc, grid = raster::res(L.res[[1]]$L.5)[1])
-      setwd(myDir); save(res, file=paste(runName, '-HMMoce_res.rda', sep=''))
-      #save.image(file=paste(ptt, '-HMMoce.RData', sep=''))
-      #aws.s3::s3save(res, bucket=paste(bucketDir, '/', ptt, sep=''), object=paste(runName, '-HMMoce_res.rda', sep=''))
-      #source('~/HMMoce/R/hmm.diagnose.r')
-      #hmm.diagnose(res, L.idx, L.res, dateVec, locs.grid, iniloc, bathy, pdt, plot=T)
-      
-      outVec <- outVec
-      
-    } # parVec loop
-  } # bndVec loop
-} # L.idx loop
-
-
-parallel::stopCluster(cl)
-closeAllConnections()
 
 #}
 
@@ -119,7 +132,12 @@ closeAllConnections()
 #setwd(myDir); base::save.image('check3.rda')
 #aws.s3::s3save_image(bucket=paste(bucketDir, '/', ptt, sep=''), object='check3.rda')
 
-
+for (i in 4:nrow(meta)){
+  ptt <- meta$PTT[i]
+  bucketDir.i <- paste(bucketDir, '/', ptt, sep='')
+  aws.s3::save_object('check2.rda', file='check2.rda', bucket=bucketDir.i)
+  
+}
 
 
 
