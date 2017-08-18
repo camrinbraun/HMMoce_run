@@ -1,5 +1,5 @@
-# for (ii in c(18,21:23,33)){
-for (ii in 2:16){ #nextAnimal
+ for (ii in c(18,21:23,33)){
+#for (ii in 2:16){ #nextAnimal
 
   #library(HMMoce)
   #setwd('~/HMMoce/'); devtools::load_all()
@@ -308,15 +308,16 @@ if (enterAt == 3){
   #optim function here
   
   # BEGIN PARALLEL STUFF  
+  require(foreach)
   print('Processing in parallel... ')
-  ncores <- parallel::detectCores()
+  ncores <- ceiling(parallel::detectCores() * .25)
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl, cores = ncores)
   
   ans = foreach::foreach(tt = run.idx) %dopar%{
     #setwd('~/HMMoce'); devtools::load_all()
-    setwd(myDir)
-    library(HMMoce)
+    #setwd(myDir)
+    #library(HMMoce)
     #for (tt in run.idx){
     for (bnd in bndVec){
       for (i in parVec){
@@ -326,10 +327,10 @@ if (enterAt == 3){
         #----------------------------------------------------------------------------------#
         # COMBINE LIKELIHOOD MATRICES
         #----------------------------------------------------------------------------------#
-        L <- HMMoce::make.L(L1 = L.res[[1]][L.idx[[tt]]],
+        L <- make.L(L1 = L.res[[1]][L.idx[[tt]]],
                             L.mle.res = L.res$L.mle.res, dateVec = dateVec,
                             locs.grid = locs.grid, iniloc = iniloc, bathy = bathy,
-                            pdt = pdt)
+                            pdt = pdt, known.locs=known.locs)
         L.mle <- L$L.mle
         L <- L$L
         g <- L.res$g
@@ -338,20 +339,20 @@ if (enterAt == 3){
         lat <- g$lat[,1]
         
         # GET MOVEMENT KERNELS AND SWITCH PROB FOR COARSE GRID
-        par0 <- HMMoce::makePar(migr.spd=i, grid=g.mle, L.arr=L.mle, p.guess=c(.9,.9), calcP=T)
+        par0 <- makePar(migr.spd=i, grid=g.mle, L.arr=L.mle, p.guess=c(.9,.9), calcP=T)
         #K1 <- par0$K1; K2 <- par0$K2; 
         P.final <- par0$P.final
         
         # GET MOVEMENT KERNELS AND SWITCH PROB FOR FINER GRID
-        par0 <- HMMoce::makePar(migr.spd=i, grid=g, L.arr=L, p.guess=c(.9,.9), calcP=F)
+        par0 <- makePar(migr.spd=i, grid=g, L.arr=L, p.guess=c(.9,.9), calcP=F)
         K1 <- par0$K1; K2 <- par0$K2; #P.final <- par0$P.final
         
         # RUN THE FILTER STEP
         if(!is.na(bnd)){
-          f <- HMMoce::hmm.filter(g, L, K1, K2, maskL=T, P.final, minBounds = bnd)
+          f <- hmm.filter(g, L, K1, K2, maskL=T, P.final, minBounds = bnd)
           maskL.logical <- TRUE
         } else{
-          f <- HMMoce::hmm.filter(g, L, K1, K2, P.final, maskL=F)
+          f <- hmm.filter(g, L, K1, K2, P.final, maskL=F)
           maskL.logical <- FALSE
         }
         nllf <- -sum(log(f$psi[f$psi>0]))
@@ -361,7 +362,8 @@ if (enterAt == 3){
         
         # GET THE MOST PROBABLE TRACK
         tr <- calc.track(s, g, dateVec, iniloc)
-        setwd(myDir)
+        setwd(myDir); plotHMM(s, tr, dateVec, ptt=runName, save.plot = T)
+        
         
         # WRITE OUT RESULTS
         outVec <- matrix(c(ptt=ptt, minBounds = bnd, migr.spd = i,
@@ -373,9 +375,9 @@ if (enterAt == 3){
         res <- list(outVec = outVec, s = s, g = g, tr = tr, dateVec = dateVec, iniloc = iniloc, grid = raster::res(L.res[[1]]$L.5)[1])
         setwd(myDir); save(res, file=paste(runName, '-HMMoce_res.rda', sep=''))
         #save.image(file=paste(ptt, '-HMMoce.RData', sep=''))
-        aws.s3::s3save(res, bucket=paste(bucketDir, '/', ptt, sep=''), object=paste(runName, '-HMMoce_res.rda', sep=''))
-        source('~/HMMoce/R/hmm.diagnose.r')
-        hmm.diagnose(res, L.idx, L.res, dateVec, locs.grid, iniloc, bathy, pdt, plot=T)
+        #aws.s3::s3save(res, bucket=paste(bucketDir, '/', ptt, sep=''), object=paste(runName, '-HMMoce_res.rda', sep=''))
+        #source('~/HMMoce/R/hmm.diagnose.r')
+        #hmm.diagnose(res, L.idx, L.res, dateVec, locs.grid, iniloc, bathy, pdt, plot=T)
         
         outVec <- outVec
         
