@@ -1,40 +1,42 @@
-#library(HMMoce)
-#setwd('~/HMMoce/'); devtools::load_all()
-dataDir <- '~/ebs/Data/BaskingSharks/batch/'
-envDir <- '~/ebs/EnvData/'
-sst.dir <- '~/ebs/EnvData/sst/BaskingSharks/'
-hycom.dir <- '~/ebs/EnvData/hycom3/BaskingSharks/'
-statusVec <- NA
-bucketDir <- 'braun-data/Data/BaskingSharks/batch'
+# for (ii in c(18,21:23,33)){
+for (ii in 2:16){ #nextAnimal
 
-load('~/ebs/Data/BaskingSharks/batch/bask_lims.rda')
-str(bask.lims)
-# i think 52556, 52562, 100975 are "big" bounds. may be a few more.
-# add this spec to meta
-
-# aws credentials for reading s3
-#Sys.setenv("AWS_ACCESS_KEY_ID" = aws.signature::locate_credentials()[[1]],
-##           "AWS_SECRET_ACCESS_KEY" = aws.signature::locate_credentials()[[2]],
-#           "AWS_DEFAULT_REGION" = aws.signature::locate_credentials()[[4]])
-#library(aws.s3)
-#bucketlist()
-
-# which of L.idx combinations do you want to run?
-run.idx <- c(1,2,4,7,11,13)
-
-# vector of appropriate bounding in filter
-bndVec <- c(NA, 5, 10)
-
-# vector of appropriate migr kernel speed
-parVec <- c(2, 4)
-
-setwd(dataDir)
-#aws.s3::save_object('bask_metadata.csv', file='bask_metadata.csv', bucket=bucketDir)
-meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
-likVec=c(1,2,3,4,5)
-
-#for (ii in 1:nrow(meta)){ #nextAnimal
-ii = 30
+  #library(HMMoce)
+  #setwd('~/HMMoce/'); devtools::load_all()
+  dataDir <- '~/ebs/Data/BaskingSharks/batch/'
+  envDir <- '~/ebs/EnvData/'
+  sst.dir <- '~/ebs/EnvData/sst/BaskingSharks/'
+  hycom.dir <- '~/ebs/EnvData/hycom3/BaskingSharks/'
+  statusVec <- NA
+  bucketDir <- 'braun-data/Data/BaskingSharks/batch'
+  
+  load('~/ebs/Data/BaskingSharks/batch/bask_lims.rda')
+  str(bask.lims)
+  # i think 52556, 52562, 100975 are "big" bounds. may be a few more.
+  # add this spec to meta
+  
+  # aws credentials for reading s3
+  #Sys.setenv("AWS_ACCESS_KEY_ID" = aws.signature::locate_credentials()[[1]],
+  ##           "AWS_SECRET_ACCESS_KEY" = aws.signature::locate_credentials()[[2]],
+  #           "AWS_DEFAULT_REGION" = aws.signature::locate_credentials()[[4]])
+  #library(aws.s3)
+  #bucketlist()
+  
+  # which of L.idx combinations do you want to run?
+  run.idx <- c(1,2,4,7,11,13)
+  
+  # vector of appropriate bounding in filter
+  bndVec <- c(NA, 5, 10)
+  
+  # vector of appropriate migr kernel speed
+  parVec <- c(2, 4)
+  
+  setwd(dataDir)
+  #aws.s3::save_object('bask_metadata.csv', file='bask_metadata.csv', bucket=bucketDir)
+  meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
+  likVec=c(1,2,3,4,5)
+  
+  #ii = 1
 ptt <- meta$PTT[ii] #nextAnimal
 
 # set an area of interest for a particular individual in the resample.grid function using:
@@ -174,6 +176,7 @@ if (enterAt == 2){
       L.2 <- calc.sst.par(tag.sst, filename=fname, sst.dir = sst.dir.big, dateVec = dateVec, sens.err = 1)
     }
     
+    gc(); closeAllConnections()
     #raster::cellStats(L.2, 'max')
     #aws.s3::s3save_image(bucket=paste(bucketDir, '/', ptt, sep=''), object='check1.rda')
     setwd(myDir); base::save.image('check1.rda')
@@ -209,6 +212,7 @@ if (enterAt == 2){
     }
   }
   
+  gc(); closeAllConnections()
   hycom.dir <- '~/ebs/EnvData/hycom3/BaskingSharks/'
   
   if (any(likVec == 4) & !exists('L.4')){
@@ -228,6 +232,8 @@ if (enterAt == 2){
   } else{
     L.4 <- L.1 * 0
   }
+  
+  gc(); closeAllConnections()
   
   if (any(likVec == 5) & !exists('L.5')){
     if(is.small){
@@ -250,6 +256,8 @@ if (enterAt == 2){
       statusVec <- c(statusVec, 'calc.hycom.par failed')
     }
   }
+  
+  gc(); closeAllConnections()
   
   #----------------------------------------------------------------------------------#
   # LIST, RESAMPLE, SAVE
@@ -290,6 +298,8 @@ if (enterAt == 2){
   #================
   enterAt <- 3
 } 
+rm(list=ls())
+}
 
 if (enterAt == 3){
   myDir <- paste(dataDir, ptt, '/', sep='')
