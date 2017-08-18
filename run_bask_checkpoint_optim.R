@@ -33,7 +33,16 @@ for (ii in 2:nrow(meta)){
   if (length(grep('_res.rda', fileList)) >= 18){
     
   } else{
-    load('check2.rda')
+    
+    if (file.exists('check2.rda')){
+      load('check2.rda')
+      
+    } else{
+      bucketDir.i <- paste(bucketDir, '/', ptt, sep='')
+      aws.s3::save_object('check2.rda', file='check2.rda', bucket=bucketDir.i)
+      load('check2.rda')
+      
+    }
     
     bathy <- raster::raster('~/ebs/EnvData/bathy/BaskingSharks/bask_bathy_small.grd')
     #optim function here
@@ -58,7 +67,7 @@ for (ii in 2:nrow(meta)){
           #----------------------------------------------------------------------------------#
           # COMBINE LIKELIHOOD MATRICES
           #----------------------------------------------------------------------------------#
-          L <- HMMoce::make.L(L1 = L.res[[1]][L.idx[[tt]]],
+          L <- make.L(L1 = L.res[[1]][L.idx[[tt]]],
                               L.mle.res = L.res$L.mle.res, dateVec = dateVec,
                               locs.grid = locs.grid, iniloc = iniloc, bathy = bathy,
                               pdt = pdt)
