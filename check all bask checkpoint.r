@@ -129,11 +129,11 @@ all1 <- read.table('~/ebs/Data/BaskingSharks/batch/all_bask_outvec.csv', sep=','
 
 for (i in 17:nrow(meta)){
   ptt <- meta$PTT[i]
-  idx <- which(all[,2] == ptt)
+  idx <- which(all1[,2] == ptt)
   
   for (b in 1:length(idx)){
-    getall <- data.frame(t(as.character(all[idx[b]:(idx[b]+27),2])))
-    write.table(getall, '~/ebs/Data/BaskingSharks/batch/all_bask_outvec.csv', sep=',', col.names=F, append=T)
+    getall <- data.frame(t(as.character(all1[idx[b]:(idx[b]+27),2])))
+    write.table(getall, '~/ebs/Data/BaskingSharks/batch/all_bask_outvec_v2.csv', sep=',', col.names=F, append=T)
   }
 }
 
@@ -146,3 +146,18 @@ for (i in 17:nrow(meta)){
   
   
 }
+
+
+dat <- read.table('~/ebs/Data/BaskingSharks/batch/all_bask_outvec_v2.csv', sep=',', header=F)
+dat <- dat[which(dat[,6] != 1),]
+names(dat) <- c('rownum','ptt','bnd','i','Lidx','p1','p2','xmin','xmax','ymin','ymax',
+                'resolx','resoly','maskL','nll','runname','deploydur','sstdays',
+                'min.sst.gaps','max.sst.gaps',
+                'mean.sst.gaps','pdtdays','min.pdt.gaps', 'max.pdt.gaps',
+                'mean.pdt.gaps','gpedays','min.gpe.gaps','max.gpe.gaps',
+                'mean.gpe.gaps')
+write.table(dat, file='~/ebs/Data/BaskingSharks/batch/all_bask_outvec_clean.csv',sep=',', col.names=T, row.names=F)
+
+
+
+
