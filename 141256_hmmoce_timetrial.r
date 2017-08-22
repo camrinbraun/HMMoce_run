@@ -2,8 +2,8 @@
 library(HMMoce)
 
 # SETWD
-#setwd('~/Documents/WHOI/RCode/HMMoce_run/data/141256/') 
-setwd('C:/RData/HMMoce_run/data/141256/')
+setwd('~/ebs/Data/BlueSharks/141256/') 
+#setwd('C:/RData/HMMoce_run/data/141256/')
 load('141256_likelihoods.RData')
 
 
@@ -22,7 +22,7 @@ L.1 <- calc.gpe2(locs, locDates, locs.grid = locs.grid, dateVec = dateVec, errEl
 
 # GENERATE DAILY SST LIKELIHOODS
 #t0 <- Sys.time()
-sst.dir <- 'C:/RData/HMMoce_run/env_data/141256/sst/'
+sst.dir <- '/home/rstudio/ebs/EnvData/sst/BlueSharks/141256/'
 L.2 <- calc.sst.par(tag.sst, ptt, sst.dir = sst.dir, dateVec = dateVec, sens.err = 2.5)
 #L.2 <- calc.sst.par(tag.sst, filename=fname, sst.dir = sst.dir.small, dateVec = dateVec, sens.err = 1)
 
@@ -34,7 +34,7 @@ L.2 <- calc.sst.par(tag.sst, ptt, sst.dir = sst.dir, dateVec = dateVec, sens.err
 # GENERATE DAILY OCEAN HEAT CONTENT (OHC) LIKELIHOODS
 #pdt.try <- pdt[-which(pdt$Date == '2016-01-03 00:00:00'),]
 t0 <- Sys.time()
-hycom.dir <- 'C:/RData/HMMoce_run/env_data/141256/hycom/'
+hycom.dir <- '/home/rstudio/ebs/EnvData/hycom/'
 L.3 <- calc.ohc.par(pdt, ptt, ohc.dir = hycom.dir, dateVec = dateVec, isotherm = '', use.se = FALSE)
 #L.3 <- calc.ohc.par(pdt, filename=fname, ohc.dir = hycom.dir, dateVec = dateVec, isotherm = '', use.se = F, ncores=parallel::detectCores()-2)
 t1 <- Sys.time()
@@ -84,10 +84,11 @@ gc(); closeAllConnections()
 #for (iii in 1:5){
 #  rvec[[iii]] <- exists(paste('L.',iii,sep=''))
 #}
+t003 <- Sys.time()
 rm(L.4); rm(L.idx); rm(L.rasters); rm(L.res)
 L.rasters <- mget(ls(pattern = 'L\\.'))
 #resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
-L.res <- resample.grid(L.rasters, aggregate(L.1, 4), mle.res=1)
+L.res <- resample.grid(L.rasters, raster::aggregate(L.rasters[[1]], 4), mle.res=1)
 #L.res <- resample.grid(L.rasters, aggregate(L.1, 3), mle.res=1)
 #L.res <- resample.grid(L.rasters, aggregate(L.1, 2), mle.res=1)
 #L.res <- resample.grid(L.rasters, L.1, mle.res=1)
@@ -117,22 +118,31 @@ rm(list=c('L.1','L.2','L.3','L.4','L.5', 'woa.quarter'))
 #}
 
 #if (enterAt == 3){
-dataDir <- 'C:/RData/HMMoce_run/data/' 
-myDir <- paste(dataDir, ptt, '/', sep='')
-  setwd(myDir)#; load('check2.rda')
-  
+#dataDir <- 'C:/RData/HMMoce_run/data/' 
+#myDir <- paste(dataDir, ptt, '/', sep='')
+#  setwd(myDir)#; load('check2.rda')
+#t003 <- Sys.time()
+bndVec <- c(NA, 5, 10)
+parVec <- c(2, 4)
+run.idx <- c(1,2,4,7,11,13)
+require(foreach)
+print('Processing in parallel... ')
+ncores <- ceiling(parallel::detectCores() * .25)
+cl = parallel::makeCluster(ncores)
+doParallel::registerDoParallel(cl, cores = ncores)
+
   #optim function here
-  tt <- 13
-  #ans = foreach::foreach(tt = run.idx) %dopar%{
+  #tt <- 13
+  ans = foreach::foreach(tt = run.idx) %dopar%{
     #setwd('~/HMMoce'); devtools::load_all()
     #setwd(myDir)
-    #library(HMMoce)
+    library(HMMoce)
     #for (tt in run.idx){
-  bnd <- NA
-  i=4
-  
-  #for (bnd in bndVec){
-   #   for (i in parVec){
+  #bnd <- NA
+ # i=4
+#  
+  for (bnd in bndVec){
+      for (i in parVec){
         
         runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i,sep='')
         
@@ -185,7 +195,8 @@ myDir <- paste(dataDir, ptt, '/', sep='')
         #write.table(outVec,paste(dataDir, 'outVec_results.csv', sep=''), sep=',', col.names=F, append=T)
         #names(outVec) <- c('ptt','bnd','migr.spd','Lidx','P1','P2','spLims','resol','maskL','nll','name')
         res <- list(outVec = outVec, s = s, g = g, tr = tr, dateVec = dateVec, iniloc = iniloc, grid = raster::res(L.res[[1]]$L.5)[1])
-        setwd(myDir); save(res, file=paste(runName, '-HMMoce_res.rda', sep=''))
+        #setwd(myDir); 
+        save(res, file=paste(runName, '-HMMoce_res.rda', sep=''))
         #save.image(file=paste(ptt, '-HMMoce.RData', sep=''))
         #aws.s3::s3save(res, bucket=paste(bucketDir, '/', ptt, sep=''), object=paste(runName, '-HMMoce_res.rda', sep=''))
         #source('~/HMMoce/R/hmm.diagnose.r')
@@ -193,16 +204,18 @@ myDir <- paste(dataDir, ptt, '/', sep='')
         
         #outVec <- outVec
         
-        t003 <- Sys.time()
-  #    } # parVec loop
-  #  } # bndVec loop
-  #} # L.idx loop
+      } # parVec loop
+    } # bndVec loop
+  } # L.idx loop
+    
   
+  parallel::stopCluster(cl)
+  closeAllConnections()
   
-  #parallel::stopCluster(cl)
-  #closeAllConnections()
-  
-#}
+
+
+t004 <- Sys.time()
+      
 #-------
 # GENERATE DAILY PROFILE LIKELIHOODS
 #L.prof.woa <- calc.profile(pdt, dat = woa, lat = lat, lon = lon, dateVec = dateVec, envType = 'woa')
