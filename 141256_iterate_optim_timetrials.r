@@ -38,7 +38,7 @@ ans = foreach::foreach(tt = run.idx) %dopar%{
   for (bnd in bndVec){
     for (i in parVec){
       
-      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],0), sep='')
+      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],2), sep='')
       
       #----------------------------------------------------------------------------------#
       # COMBINE LIKELIHOOD MATRICES
@@ -147,7 +147,7 @@ ans = foreach::foreach(tt = run.idx) %dopar%{
   for (bnd in bndVec){
     for (i in parVec){
       
-      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],0), sep='')
+      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],2), sep='')
       
       #----------------------------------------------------------------------------------#
       # COMBINE LIKELIHOOD MATRICES
@@ -258,7 +258,7 @@ ans = foreach::foreach(tt = run.idx) %dopar%{
   for (bnd in bndVec){
     for (i in parVec){
       
-      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],0), sep='')
+      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],2), sep='')
       
       #----------------------------------------------------------------------------------#
       # COMBINE LIKELIHOOD MATRICES
@@ -368,7 +368,7 @@ ans = foreach::foreach(tt = run.idx) %dopar%{
   for (bnd in bndVec){
     for (i in parVec){
       
-      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],0), sep='')
+      runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i, '_res', round(raster::res(L.res[[1]][[1]])[1],2), sep='')
       
       #----------------------------------------------------------------------------------#
       # COMBINE LIKELIHOOD MATRICES
