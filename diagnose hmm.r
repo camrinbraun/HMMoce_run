@@ -1,6 +1,11 @@
+
+dataDir <- '~/ebs_large/Data/BaskingSharks/batch/'
+meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
+i = which(meta$PTT == 110493)
+
 meta$hmmoce <- NA
 for (i in 37:nrow(meta)){
-  setwd(paste('~/ebs/Data/BaskingSharks/batch/', meta$PTT[i],sep=''))
+  setwd(paste('~/ebs_large/Data/BaskingSharks/batch/', meta$PTT[i],sep=''))
   fileList <- list.files()
   resFiles <- fileList[grep('_res.rda', fileList)]
   if(length(resFiles) == 36){
@@ -34,6 +39,10 @@ load(fileList[grep('100979_idx7_bndNA_par4', fileList)[1]])
 load('check2.rda')
 
 source('~/HMMoce/R/hmm.diagnose.r')
-hmm.diagnose(res, plot=TRUE)
+hmm.diagnose(res, L.idx, L.res, res$dateVec, locs.grid, res$iniloc, bathy, pdt, plot=TRUE)
+
+# need to save a check3 equivalent for ptts:
+pttList <- c(52556, 52557, 52559, 52562, 53329, 88136, 88139, 88141, 88143, 95982, 100973, 100974, 100979, 110493)
+
 
 
