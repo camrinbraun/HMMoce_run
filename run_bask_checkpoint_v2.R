@@ -330,7 +330,7 @@ if (enterAt == 3){
         L <- make.L(L1 = L.res[[1]][L.idx[[tt]]],
                             L.mle.res = L.res$L.mle.res, dateVec = dateVec,
                             locs.grid = locs.grid, iniloc = iniloc, bathy = bathy,
-                            pdt = pdt, known.locs=known.locs)
+                            pdt = pdt)
         L.mle <- L$L.mle
         L <- L$L
         g <- L.res$g
@@ -362,7 +362,8 @@ if (enterAt == 3){
         
         # GET THE MOST PROBABLE TRACK
         tr <- calc.track(s, g, dateVec, iniloc)
-        setwd(myDir); plotHMM(s, tr, dateVec, ptt=runName, save.plot = T)
+        #setwd(myDir); 
+        plotHMM(s, tr, dateVec, ptt=runName, save.plot = T)
         
         
         # WRITE OUT RESULTS

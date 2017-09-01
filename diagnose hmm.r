@@ -1,7 +1,7 @@
 
-dataDir <- '~/ebs_large/Data/BaskingSharks/batch/'
+dataDir <- '~/ebs/Data/BaskingSharks/batch/'
 meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
-i = which(meta$PTT == 110493)
+i = which(meta$PTT == 52557)
 
 meta$hmmoce <- NA
 for (i in 37:nrow(meta)){
@@ -33,14 +33,19 @@ all <- all[which(all$ptt == ptt),]
 all <- all[order(all$nll),]
 
 # once we have the "best" model fit, we can look at diagnostics
+setwd(paste(dataDir, '/', meta$PTT[i], sep=''))
 fileList <- list.files()
-load(fileList[grep('100979_idx7_bndNA_par4', fileList)[1]])
+load(fileList[grep('52557_idx7_bnd5_par4', fileList)[1]])
 #load(fileList[grep(all$name[nrow(all)], fileList)[1]])
 load('check2.rda')
 
 source('~/HMMoce/R/hmm.diagnose.r')
-hmm.diagnose(res, L.idx, L.res, res$dateVec, locs.grid, res$iniloc, bathy, pdt, plot=TRUE)
-
+hmm.diagnose(res, L.idx, L.res, res$dateVec, locs.grid, iniloc=res$iniloc, bathy, pdt, plot=TRUE)
+L.1 <- L.res[[1]]$L.1
+for (i in 50:174){
+  L.1[[i]] <- L.1[[i]]*0
+}
+L.res[[1]]$L.1 <- L.1
 # need to save a check3 equivalent for ptts:
 pttList <- c(52556, 52557, 52559, 52562, 53329, 88136, 88139, 88141, 88143, 95982, 100973, 100974, 100979, 110493)
 
