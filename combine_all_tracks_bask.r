@@ -31,19 +31,31 @@ for (ii in 1:nrow(meta)){
   
 }
 
+# remove NULL elements
+names(all) <- meta$PTT
+all[sapply(all, is.null)] <- NULL
+
 #lapply(all, FUN=function(x) which(x$allRD))
 allRD <- list()
-rsamp <- all[[1]]$allRD
+rsamp <- all[[5]]$allRD
 rsamp <- disaggregate(rsamp, 4)
 
 for (b in 1:length(all)){
-  allRD[[b]] <- all[[b]]$allRD
-  allRD[[b]] <- resample(allRD[[b]], rsamp)
+  if(!is.null(all[[b]])){
+    allRD[[b]] <- all[[b]]$allRD
+    allRD[[b]] <- resample(allRD[[b]], rsamp)
+  }
+  
 }
+
+
+#names(allRD) <- meta$PTT
+#allRD[sapply(allRD, is.null)] <- NULL
+
 
 s <- stack(allRD)
 #pdf('sword_map.pdf', width=12, height=8)
-plot(sum(s, na.rm=T))
+plot(ln(sum(s, na.rm=T)))
 world(add=T, fill=T)
 
 # get total df
