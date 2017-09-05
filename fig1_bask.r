@@ -9,22 +9,38 @@ library(raster); library(fields); library(rgdal)
 
 r.pts <- rasterToPoints(bask.res[[2]], spatial=TRUE)
 
-lon <- r.pts@coords[,1]
-lat <- r.pts@coords[,2]
+lon.all <- unique(r.pts@coords[,1])
+lat.all <- rev(unique(r.pts@coords[,2]))
 rm(r.pts)
-grid <- HMMoce::meshgrid(lon, lat)
+g.all <- HMMoce:::meshgrid(lon.all, lat.all)
 
-# calc semi minor axis based on longitude error
-slon.sd <- locs$Error.Semi.minor.axis / 1000 / 111 #semi minor axis
-L.light.lon <- stats::dnorm(t(g1$X), locs$Longitude, slon.sd) # Longitude data
-slat.sd <- locs$Error.Semi.major.axis / 1000 / 111 #semi major axis
-L.light.lat <- stats::dnorm(t(g1$Y), locs$Latitude, slat.sd)
-
-#image.plot(g$lon[1,],g$lat[,1],L.light.lat*L.light.lon)
-
-# create the ellipse by multiplying lat * lon error
-L <- raster::flip(raster::raster(t(L.light.lat * L.light.lon), xmn = min(lon1), 
-                                 xmx = max(lon1), ymn = min(lat1), ymx = max(lat1)), direction = 'y')
+# get a list of SpatialPolygons for each individual
+for (i in 1:length(bask.res[[1]])){
+  locs <- bask.res[[1]][[i]]$df
+  polyList <- list()
+  for (b in 1:nrow(locs)){
+    # calc axes of ellipse based on x/ydist from getCtr
+    slon.sd <- locs$xdist[b]
+    L.light.lon <- stats::dnorm(t(g.all$X), locs$lon[b], slon.sd) # Longitude data
+    slat.sd <- locs$ydist[b]
+    L.light.lat <- stats::dnorm(t(g.all$Y), locs$lat[b], slat.sd)
+    
+    # create the ellipse by multiplying lat * lon error
+    L <-  raster::flip(raster::raster(t(L.light.lat * L.light.lon), xmn = min(lon.all), 
+                         xmx = max(lon.all), ymn = min(lat.all), ymx = max(lat.all)), direction='y')
+    L.mat <- t(as.matrix(raster::flip(L, direction='y'))) / cellStats(L, 'max')
+    ctr.L <- contourLines(lon.all, lat.all, L.mat)
+    #idx <- which.min(lapply(ctr, FUN=function(x) which(round(x$level,1) == round(threshold, 1))) == 1)
+    ctr <- data.frame(ctr[[1]])
+    sp::coordinates(ctr) <- ~x+y
+    l1 <- sp::SpatialLines(list(sp::Lines(sp::Line(sp::coordinates(ctr)), "L1")))
+    p1 <- gPolygonize(l1)
+    polyList[[b]] <- p1
+  }
+  
+  bask.res[[1]][[i]]$polyList <- polyList
+  
+}
 
 
 

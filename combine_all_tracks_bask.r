@@ -23,9 +23,14 @@ for (ii in 1:nrow(meta)){
     df$ptt <- ptt
     rownames(df) <- NULL
     
+    ctrList <- list()
+    for (tt in 1:length(bnds)){
+      ctrList[[tt]] <- unlist(bnds[[tt]])$ctr
+    }
+    
     # make list of each RD
     rd <- plotRD(res$s, res$tr, ptt, g=res$g, makePlot=F)
-    all[[ii]] <- list(allRD=rd$allRD, behavRD=rd$behavRD, df=df)
+    all[[ii]] <- list(allRD=rd$allRD, behavRD=rd$behavRD, df=df, ctr=ctrList)
     
   }
   
