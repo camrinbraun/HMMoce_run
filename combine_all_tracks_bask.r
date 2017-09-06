@@ -1,5 +1,6 @@
 #setwd('~/Documents/WHOI/RCode/HMMoce/'); devtools::load_all()
 dataDir <- '~/ebs/Data/BaskingSharks/batch/'
+library(raster); library(rgeos)
 
 meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
 #meta <- meta[-5,]
@@ -25,7 +26,7 @@ for (ii in 1:nrow(meta)){
     
     ctrList <- list()
     for (tt in 1:length(bnds)){
-      ctrList[[tt]] <- unlist(bnds[[tt]])$ctr
+      ctrList[[tt]] <- gPolygonize(unlist(bnds[[tt]])$ctr)
     }
     
     # make list of each RD
@@ -60,7 +61,7 @@ for (b in 1:length(all)){
 
 s <- stack(allRD)
 #pdf('sword_map.pdf', width=12, height=8)
-plot(ln(sum(s, na.rm=T)))
+plot(sum(s, na.rm=T))
 world(add=T, fill=T)
 
 # get total df
@@ -75,7 +76,7 @@ for (i in 1:length(rb)){
 }
 
 bask.res <- list(all=all, allRD=s, all.df=all.df)
-save(bask.res, file='bask_results.rda')
+save(bask.res, file='bask_results_v2.rda')
 
 #dev.off()
 #allRDs <- sum(allRD, na.rm=T)#lapply(allRD, FUN=function(x) sum(x, na.rm=T))
