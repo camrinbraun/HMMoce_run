@@ -7,9 +7,9 @@ listB <- c(52562, 100975, 110502)
 
 library(raster); library(fields); library(RColorBrewer)
 #bathy <- raster('~/ebs/EnvData/bathy/BaskingSharks/bask_bathy_big.gri')
-bathy <- HMMoce::get.bath.data(-100, -10, -30, 60, res = c(.5), seaonly=F)
-writeRaster(bathy, '~/ebs/EnvData/bathy/BaskingSharks/plot_big_bathy.grd')
-bathy <- raster('~/ebs/EnvData/bathy/BaskingSharks/plot_big_bathy.grd')
+bathy <- get.bath.data(-100, -10, -30, 60, res = c(.5), seaonly=T)
+writeRaster(bathy, '~/ebs/EnvData/bathy/BaskingSharks/plot_big_bathy_hi.grd')
+bathy <- raster('~/ebs/EnvData/bathy/BaskingSharks/plot_big_bathy_hi.grd')
 
 load('~/ebs/Data/BaskingSharks/batch/bask_results_v2.rda')
 df <- bask.res[[3]]; rm(bask.res)
