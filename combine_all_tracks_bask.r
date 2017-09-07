@@ -2,7 +2,7 @@
 dataDir <- '~/ebs/Data/BaskingSharks/batch/'
 library(raster); library(rgeos)
 
-meta <- read.table(paste(dataDir, 'bask_metadata.csv',sep=''), sep=',', header=T)
+meta <- read.table(paste(dataDir, 'bask_metadata_v2.csv',sep=''), sep=',', header=T)
 #meta <- meta[-5,]
 all <- list()
 for (ii in 1:nrow(meta)){
@@ -31,7 +31,9 @@ for (ii in 1:nrow(meta)){
     
     # make list of each RD
     rd <- plotRD(res$s, res$tr, ptt, g=res$g, makePlot=F)
-    all[[ii]] <- list(allRD=rd$allRD, behavRD=rd$behavRD, df=df, ctr=ctrList)
+    source('~/HMMoce_run/plotRD.monthly.r')
+    seasonRD <- plotRD.monthly(res$s, res$tr, ptt, g=res$g, dateVec=res$dateVec)
+    all[[ii]] <- list(allRD=rd$allRD, behavRD=rd$behavRD, seasonRD=seasonRD, df=df, ctr=ctrList)
     
   }
   
@@ -76,7 +78,7 @@ for (i in 1:length(rb)){
 }
 
 bask.res <- list(all=all, allRD=s, all.df=all.df)
-save(bask.res, file='bask_results_v2.rda')
+save(bask.res, file='bask_results_v4.rda')
 
 #dev.off()
 #allRDs <- sum(allRD, na.rm=T)#lapply(allRD, FUN=function(x) sum(x, na.rm=T))
