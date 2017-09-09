@@ -1,5 +1,5 @@
 # FIGURE 1 - BASKING SHARK MS
-load('~/ebs/Data/BaskingSharks/batch/bask_results_v2.rda')
+load('~/ebs/Data/BaskingSharks/batch/bask_results_v4.rda')
 library(raster); library(fields); library(rgdal)
 
 # bask.res is a list of length 3
@@ -40,7 +40,7 @@ mar.left[4] <- 0
 mar.right[2] <- 0
 
 # BUILD THE PLOT
-pdf('~/ebs/Data/BaskingSharks/batch/fig1_bask.pdf', width=12, height=12)
+pdf('~/ebs/Data/BaskingSharks/batch/fig1_bask_v4.pdf', width=12, height=12)
 #nf <- layout(matrix(c(1,2,
 #                      1,2), 1, 2, byrow=T), widths=c(5,3), heights=c(5))
 #layout.show(nf)
@@ -62,6 +62,9 @@ points(locs$lon, locs$lat, pch=21, bg=locs$fill, col=locs$fill, cex=1)
 lapply(plot.lines, function(z) points(z$lon[1], z$lat[1], pch=24, bg='green', cex=1.5))
 lapply(plot.lines, function(z) points(z$lon[nrow(z)], z$lat[nrow(z)], pch=25, bg='red', cex=1.5))
 
+img <- readPNG("~/ebs/Data/BaskingSharks/batch/month_point_legend_r-01.png")
+rasterImage(img,-85,-11,-75,9)
+
 axis(1, at=x.at, labels=x.labels)
 axis(2, at=y.at, labels=y.labels);
 box()
@@ -82,7 +85,9 @@ labels <- c('J','F','M','A','M','J','J','A','S','O','N','D')
 n.month <- unlist(lapply(dlist, FUN=function(x) x$n.indiv))
 text(xvec, yvec, labels)
 text(xvec, yvec2, n.month)
-#axis(2);axis(3)
+#mtext('# of individuals', 1, at=-45)
+#mtext('Month', 3, at=.75)
+#mtext('Month', side=3, adj=.5)
 
 dev.off()
 

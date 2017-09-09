@@ -63,6 +63,8 @@ text(-71,34, 'B22', font=2, cex=1)
 text(-58,26, 'B20', font=2, cex=1)
 text(-58,42, 'B26', font=2, cex=1)
 box()
+img <- readPNG("~/ebs/Data/BaskingSharks/batch/month_point_legend_r-01.png")
+rasterImage(img,-81,10,-76,23)
 
 plot.lines <- split(df.a, df.a$ptt) # add track lines
 lapply(plot.lines, function(z) lines(z$lon, z$lat))

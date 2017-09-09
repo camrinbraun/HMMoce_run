@@ -74,6 +74,7 @@ fields::world(add=T, fill=T, col='grey80', border='grey80')
 axis(1, at=x.at, labels=x.labels)
 axis(2, at=y.at, labels=y.labels)
 text(-22,-18,'A', font=2)
+text(-80,48,'SPRING', font=2)
 box()
 
 # spring - plot 2
@@ -94,6 +95,7 @@ fields::world(add=T, fill=T, col='grey80', border='grey80')
 axis(1, at=x.at, labels=x.labels)
 axis(2, at=y.at, labels=y.labels)
 text(-22,-18,'C', font=2)
+text(-80,48,'SUMMER', font=2)
 box()
 
 # summer - plot 4
@@ -114,6 +116,7 @@ fields::world(add=T, fill=T, col='grey80', border='grey80')
 axis(1, at=x.at, labels=x.labels)
 axis(2, at=y.at, labels=y.labels)
 text(-22,-18,'E', font=2)
+text(-81,48,'FALL', font=2)
 box()
 
 # fall - plot 6
@@ -134,6 +137,7 @@ fields::world(add=T, fill=T, col='grey80', border='grey80')
 axis(1, at=x.at, labels=x.labels)
 axis(2, at=y.at, labels=y.labels)
 text(-22,-18,'G', font=2)
+text(-80,48,'WINTER', font=2)
 box()
   
 # winter - plot 8
