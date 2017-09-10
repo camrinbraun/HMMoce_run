@@ -105,4 +105,31 @@ ii=ii+1
 
 #> setwd('~/ebs/Data/BaskingSharks/batch/')
 #> save(profs, file='bask_profile_list.rda')
+
+for (tt in 1:nrow(meta)){
+  temp.idx <- which(!is.na(profs[[tt]]$temp) & profs[[tt]]$depth <= max(profs[[tt]]$pdt.i$Depth))
   
+  plot(profs[[tt]]$temp[temp.idx], profs[[tt]]$depth[temp.idx], ylim=c(max(profs[[tt]]$depth[temp.idx]),0), type='l')
+  points(profs[[tt]]$pdt.i$MinTemp, profs[[tt]]$pdt.i$Depth)
+  
+}
+# example profiles betw hycom and tags
+# use ii = 2,4,19,21,26,29,30,31,36
+
+idx <- c(2,4,19,21,26,29,30,31,36)
+
+minT <- min(unlist(lapply(profs, FUN=function(x) min(x$temp, na.rm=T))[idx]))
+maxT <- max(unlist(lapply(profs, FUN=function(x) max(x$temp, na.rm=T))[idx]))
+maxZ <- max(unlist(lapply(profs, FUN=function(x) max(x$pdt.i$Depth, na.rm=T))[idx])) * 1.2
+
+profs.sel <- list()
+for (b in 1:length(idx)){
+  profs.sel[[b]] <- profs[[idx[b]]]
+}
+plot(0,0, type='n', ylim=c(maxZ,0), xlim=c(2.5, maxT))
+lapply(profs.sel, FUN=function(x) lines(x$temp, x$depth))
+lapply(profs.sel, FUN=function(x) points(x$pdt.i$MinTemp, x$pdt.i$Depth))
+
+lines(profs.sel[[1]]$temp, profs.sel[[1]]$depth)
+points(profs.sel[[1]]$pdt.i$MinTemp, profs.sel[[1]]$pdt.i$Depth)
+
