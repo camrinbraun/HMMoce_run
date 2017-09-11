@@ -207,6 +207,8 @@ world(add=T)
 9 or 5
 52562 OR 52556
 
+save.image('hycom_profile_fig_v1.rda')
+
 
 idx <- c(19, 29, 31, 32)
 
