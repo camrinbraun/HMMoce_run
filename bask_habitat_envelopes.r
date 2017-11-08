@@ -1,6 +1,7 @@
 #=================================================================#
 # BASK HABITAT ENVELOPES
 #=================================================================#
+library(plyr); library(ggplot2)
 
 sar <- extent(c(xmn=-78, xmx=-50, ymn=25, ymx=38))
 ne <- extent(c(xmn=-73, xmx=-65, ymn=40, ymx=44))
@@ -131,16 +132,17 @@ allpdt.dat$midtemp <- (allpdt.dat$maxtemp + allpdt.dat$mintemp) / 2
 ylab <- 'Depth (m)'
 xlab <- expression(paste("Temperature (",degree,"C)"))
 #  bzz <- c(1,5,10,20,50,100,200,500,1000,2000,4000,6000)
-bzz <- c(1,5,10,20,50,100,200,500)
-byy <- rev(seq(0,1000,10)*-1)
-ly <- rep("",length(byy))
-ly[seq(1,length(byy),by=10)] <- byy[seq(1,length(byy),by=10)]*-1
+bzz <- c(1,5,10,20,50,100,200)
+byy <- rev(seq(0,1000,100)*-1)
+#ly <- rep("",length(byy))
+ly <- as.character(byy*-1)
+#ly[seq(1,length(byy),by=100)] <- byy[seq(1,length(byy),by=100)]*-1
 ly[1] <- ">1000"
 bxx <- seq(4,32,2)
 lx <- rep("",length(bxx))
 lx[seq(2,length(bxx),by=2)] <- bxx[seq(2,length(bxx),by=2)]
 sx <- seq(4, 32, by = 1)
-sy <- rev(seq(0, 1000, by = 10)*-1)
+sy <- rev(seq(0, 1000, by = 25)*-1)
 p <- ggplot(allpdt.dat, aes(x = midtemp, y = depth))
 p <- p + geom_bin2d(breaks = list(x = sx, y = sy)) 
 p <- p + scale_x_continuous(name=xlab, breaks= bxx, labels=format(lx)) 
@@ -158,6 +160,10 @@ p + geom_text(data=atxt, aes(x=27.5, y=-1000, label=n),colour="black", size = 2.
 dev.copy2pdf(width=10,height=10, file="~/ebs/Data/BaskingSharks/batch/HabitatEnvelopeSeasonal.pdf")
 
 save.image('~/ebs/Data/BaskingSharks/batch/bask_hab_envelopes.rda')
+
+# some descriptive stats
+which(allpdt$area == 'NENG')
+
 
 ## END
 #===========================
