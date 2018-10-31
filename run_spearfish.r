@@ -3,8 +3,8 @@
 #========================
 # might be a good idea to install latest version of HMMoce
 # install.packages('HMMoce')
-install_github("camrinbraun/HMMoce", ref='dev', dependencies=F)
-#library(HMMoce)
+devtools::install_github("camrinbraun/HMMoce", ref='dev', dependencies=F)
+library(HMMoce); library(raster)
 
 #------------
 # LOAD THE TAG DATA
@@ -21,7 +21,8 @@ meta$ptt <- meta$tagnumber
 meta$eventid <- substr(meta$eventid,1,7)
 
 for (zz in 1:nrow(meta)){
-ptt <- meta$ptt[zz]
+zz <- 2
+  ptt <- meta$ptt[zz]
   iniloc <- data.frame(matrix(c(lubridate::day(meta$deploy_date[zz]), lubridate::month(meta$deploy_date[zz]), lubridate::year(meta$deploy_date[zz]), meta$deploylat[zz], meta$deploylon[zz], 
                               lubridate::day(meta$popdate[zz]), lubridate::month(meta$popdate[zz]), lubridate::year(meta$popdate[zz]), meta$poplat[zz], meta$poplon[zz]), nrow = 2, ncol = 5, byrow = T))
 
@@ -44,11 +45,16 @@ pdtFile <- paste(meta$eventid[zz],'_',meta$ptt[zz], '-PDTs.csv',sep='')
 pdt <- read.wc(pdtFile, type = 'pdt', tag=tag, pop=pop, verbose=T) 
 pdt.udates <- pdt$udates; pdt <- pdt$data
 
+## OR GET IT FROM SERIES DATA FOR HIGHER TEMPORAL RES LIKE THIS:
 seriesFile <- paste(meta$eventid[zz],'_',meta$ptt[zz], '-Series.csv',sep='')
 series <- read.table(seriesFile, sep=',', header=T, blank.lines.skip = F)
+series$date <- as.POSIXct(paste(series$Day, series$Time, sep=' '), format='%d-%b-%Y %H:%M:%S')
+series <- series[which(series$date >= tag & series$date <= pop),]
 
-
-
+btz <- bin_TempTS(series, tsDates=dateVec, res = 8) # reformat time series data to bins
+pdt <- btz[,which(names(btz) %in% c('Ptt','date','nrecs','bin','Depth','MinTemp','MaxTemp'))]
+names(pdt) <- c('Ptt','Depth','NumBins','MinTemp','MaxTemp','Date','BinNum')
+pdt.udates <- unique(as.Date(pdt$Date))
 
 # RAW LIGHT DATA
 #lightFile <- system.file("extdata", "141259-LightLoc.csv", package = "HMMoce")
@@ -86,7 +92,7 @@ get.env(sst.udates, filename='mursst', type = 'sst', sst.type='mur', spatLim = s
 #hycom.dir <- paste(tempdir(), '/hycom/', sep='')
 hycom.dir <- '~/ebs/EnvData/hycom/spearfish/'
 #dir.create(hycom.dir, recursive = TRUE)
-get.env(pdt.udates, filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir)
+get.env(pdt.udates[1], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir)
 
 # OR WORLD OCEAN ATLAS DATA
 #woa.dir <- paste(tempdir(), '/woa/', sep='')
@@ -106,6 +112,7 @@ get.env(pdt.udates, filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir
 bathy.dir <- '~/ebs/EnvData/bathy/spearfish/'
 #dir.create(bathy.dir, recursive = TRUE)
 bathy <- get.bath.data(sp.lim$lonmin, sp.lim$lonmax, sp.lim$latmin, sp.lim$latmax, folder = bathy.dir)
+bathy <- raster(paste(bathy.dir, 'bathy.nc', sep=''))
 #library(raster); plot(bathy)
 # OR READ IT FROM NETCDF
 #bathy.nc <- RNetCDF::open.nc(paste(bathy.dir, 'bathy.nc', sep=''))
@@ -144,16 +151,25 @@ gc(); closeAllConnections() # also good to do garbage collection and kill any st
 gc(); closeAllConnections() # also good to do garbage collection and kill any straggling processes that are running
 
 # HYCOM PROFILE BASED LIKELIHOODS
-L.5 <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec, use.se = T)
+L.5 <- calc.hycom(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec, use.se = T)
+## par failing with:
+# Error in { : task 1 failed - "fewer than one row in the data"
+## its not this:
+# data.frame(pdt %>% group_by(Date) %>% summarise(n=n()))
+
 # save.image() # good idea to save after these larger calculations in case the next one causes problems
 gc(); closeAllConnections() # also good to do garbage collection and kill any straggling processes that are running
-#save.image('~/ebs/example.rda')
+save.image('~/ebs/Data/spearfish/14P0523_Likelihoods.rda')
 
 #------------
 # PREPARE TO RUN THE MODEL
 #------------
+
+load(paste('~/ebs/Data/spearfish/', ptt, '_Likelihoods.rda',sep=''))
+L.3 <- L.1 * 0; L.4 <- L.1 * 0
 L.rasters <- mget(ls(pattern = 'L\\.')) # use with caution as all workspace items containing 'L.' will be listed. We only want the likelihood outputs calculated above
-resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
+#resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
+resamp.idx <- 2
 L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
 
 # Figure out appropriate L combinations
@@ -166,7 +182,7 @@ if (length(likVec) > 2){
 }
 
 # which of L.idx combinations do you want to run?
-run.idx <- c(1,2,4)
+run.idx <- c(1:4)
 
 # vector of appropriate bounding in filter. see ?hmm.filter for more info
 bndVec <- c(NA, 5, 10)
@@ -189,11 +205,12 @@ parVec <- c(2, 4)
 #doParallel::registerDoParallel(cl, cores = ncores)
 #ans = foreach::foreach(tt = run.idx) %dopar%{
 
+setwd(paste('~/ebs/Data/spearfish/tag_data/', meta$eventid[zz], '_', meta$ptt[zz],'/',sep=''))
 for (tt in run.idx){
   for (bnd in bndVec){
     for (i in parVec){
       
-      ptt=141259
+      #ptt=141259
       runName <- paste(ptt,'_idx',tt,'_bnd',bnd,'_par',i,sep='')
       
       # COMBINE LIKELIHOOD MATRICES
@@ -236,7 +253,7 @@ for (tt in run.idx){
       plotHMM(s, tr, dateVec, ptt=runName, save.plot = T)
       
       # WRITE OUT RESULTS
-      outVec <- matrix(c(ptt=ptt, minBounds = bnd, migr.spd = i,
+      outVec <- matrix(c(ptt=as.character(meta$ptt[zz]), minBounds = bnd, migr.spd = i,
                          Lidx = paste(L.idx[[tt]],collapse=''), P1 = P.final[1,1], P2 = P.final[2,2],
                          spLims = sp.lim[1:4], resol = raster::res(L.rasters[[resamp.idx]]),
                          maskL = maskL.logical, NLL = nllf, name = runName), ncol=15)
@@ -249,7 +266,7 @@ for (tt in run.idx){
       #source('~/HMMoce/R/hmm.diagnose.r') # not yet functional
       #hmm.diagnose(res, L.idx, L.res, dateVec, locs.grid, iniloc, bathy, pdt, plot=T)
       
-      write.table(outVec, file='HMMoce_results_outVec.csv', sep=',', append=T)
+      write.table(outVec, file=paste(as.character(ptt), '_HMMoce_results_outVec.csv', sep=''), sep=',', append=T, row.names = F, col.names = F)
       
     } # parVec loop
   } # bndVec loop
@@ -258,3 +275,20 @@ for (tt in run.idx){
 } # loop across indiv ptts
 #parallel::stopCluster(cl)
 #closeAllConnections()
+
+
+# 14P0549_idx2_bndNA_par2
+# 14P0551_idx2_bndNA_par2
+# 14P0523_idx2_bndNA_par2
+
+setwd(paste('~/ebs/Data/spearfish/tag_data/', meta$eventid[zz], '_', meta$ptt[zz],'/',sep=''))
+load(paste('~/ebs/Data/spearfish/tag_data/', meta$eventid[zz], '_', meta$ptt[zz],'/',
+           meta$ptt[zz],'_idx2_bndNA_par2-HMMoce_res.rda', sep=''))
+# res <- list(outVec = outVec, s = s, g = g, tr = tr, dateVec = dateVec, iniloc = iniloc, grid = raster::res(L.res[[1]]$L.5)[1])
+outVec = res$outVec; s = res$s; g = res$g; tr = res$tr; dateVec = res$dateVec; iniloc = res$iniloc
+
+bathy.dir <- '~/ebs/EnvData/bathy/spearfish/'
+bathy <- raster(paste(bathy.dir, 'bathy.nc', sep=''))
+plot(bathy, xlim=c(min(tr$lon)-1, max(tr$lon)+1), ylim=c(min(tr$lat)-1, max(tr$lat)+1))
+points(tr$lon, tr$lat)
+
