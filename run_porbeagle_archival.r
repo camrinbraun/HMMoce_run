@@ -391,4 +391,55 @@ plot(rasterToContour(bathy, levels=-200), lty=2, add=T)
 world(add=T, fill=T)
 
 
+## build RDs
+library(HMMoce); library(raster)
+
+por_res <- gdata::read.xls('~/ebs/Results/Porbeagles/porbeagle_hmmoce_select.xlsx', header=F)
+
+crs <- "+proj=longlat +datum=WGS84 +ellps=WGS84"
+
+for (i in 11:nrow(por_res)){
+  load(paste0('~/ebs/Results/Porbeagles/', por_res$V16[i], '-HMMoce_res.rda', sep=''))
+  
+  ## get summary RD and behav RD
+  rd <- plotRD(res$s, res$tr, g=res$g, xlims=c(-80,-50), ylims=c(25,50), save.plot=F)
+  res$allRD <- rd$allRD
+  res$behavRD <- rd$behavRD
+  
+  ## get daily RD
+  distr <- res$s; g <- res$g
+  p.1 <- apply(distr[1,,,], 1, sum)
+  p.2 <- apply(distr[2,,,], 1, sum)
+  
+  # normalize for each behav at each time point
+  norm <- array(NA, dim=dim(distr)[c(3,4,2,1)])
+  for (tt in 1:dim(norm)[3]){
+    norm[,,tt,1] <- (distr[1,tt,,] / max(distr[1,tt,,], na.rm=T)) * p.1[tt]
+    norm[,,tt,2] <- (distr[2,tt,,] / max(distr[2,tt,,], na.rm=T)) * p.2[tt]
+  }
+  
+  all <- apply(norm, 1:3, FUN=function(x) sum(x, na.rm=T))
+  for (tt in 1:dim(all)[3]) all[,,tt] <- all[,,tt] / max(all[,,tt], na.rm=T)
+  
+  # get pdf as raster
+  norm <- raster::flip(raster::brick(all, xmn=min(g$lon), xmx=max(g$lon),
+                                     ymn=min(g$lat), ymx=max(g$lat), crs=crs, transpose=T), 2)
+  res$dailyRD <- norm
+  
+  #graphics.off()
+  #plot(norm[[1]], main=por_res$V16[i]); world(add=T)
+  #plot(norm[[20]], main=por_res$V16[i]); world(add=T)
+  #invisible(readline(prompt='Press [enter] to continue.'))
+  
+  save(res, file=paste0('~/ebs/Results/Porbeagles/', por_res$V16[i], '-HMMoce_res_RD.rda', sep=''))
+  rm(res); gc()
+}
+
+fList <- list.files('~/ebs/Results/Porbeagles/', full.names = T)
+fList <- fList[grep('res_RD', fList)]
+
+system(paste0('aws s3 cp /home/rstudio/ebs/Results/Porbeagles/ s3://braun-data/Results/Porbeagles/ --recursive --exclude "*" --include "*_RD*" --dryrun'))
+
+
+
 
