@@ -34,6 +34,7 @@ p1 <- ggplot(df, aes(x=dt, y=`Depth - dBar`, colour=`Ext Temp deg C`)) +
   geom_vline(xintercept = start) +
   geom_vline(xintercept = end)
 
+
 png(paste('~/Google Drive File Stream/My Drive/Albacore - All Data/figures/', id, '-depthtemp_raw.png', sep=''), width=12, height=8, units='in', res=300)
 p1
 dev.off()
