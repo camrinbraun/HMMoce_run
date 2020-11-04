@@ -40,22 +40,26 @@ pdt <- pdt[,c('Date','Depth','MinTemp','MaxTemp')]
 head(pdt)
 
 #llFile <- system.file("extdata", "141259-Locations-GPE2.csv", package = "HMMoce")
-#lightloc <- read.table(llFile, sep = ',', header = T, blank.lines.skip = F)
-#lightloc <- lightloc[which(lightloc$Type != 'Argos'),]
-#lightloc <- lightloc[,c('Date','Longitude','Error.Semi.minor.axis','Latitude','Error.Semi.major.axis','Offset','Offset.orientation')]
-#lightloc$Date <- as.POSIXct(lightloc$Date, format = findDateFormat(lightloc$Date))
-#head(lightloc)
+llFile <- fList[grep('LightLoc', fList)]
+light <- read.table(llFile, sep = ',', header = T, blank.lines.skip = F)
+#light <- light[which(light$Type != 'Argos'),]
+#light <- light[,c('Date','Longitude','Error.Semi.minor.axis','Latitude','Error.Semi.major.axis','Offset','Offset.orientation')]
+#light$Date <- as.POSIXct(light$Date, format = findDateFormat(light$Date))
+light$Date <- as.POSIXct(paste(light$Day, light$Time), tz='UTC', format='%d-%b-%Y %H:%M:%S')
+light <- light[,c('Date','Type')]
+light <- light[which(light$Type %in% c('Dawn','Dusk')),]
+head(light)
 
-mmdFile <- system.file("extdata", "141259-MinMaxDepth.csv", package = "HMMoce")
-mmdFile <- fList[grep('PDTs', fList)]
+#mmdFile <- system.file("extdata", "141259-MinMaxDepth.csv", package = "HMMoce")
+mmdFile <- fList[grep('MinMaxDepth', fList)]
 mmd <- read.table(mmdFile, sep = ',', header = T, blank.lines.skip = F)[,c('Date','MinDepth','MaxDepth')]
 mmd$Date <- as.POSIXct(mmd$Date, format = findDateFormat(mmd$Date))
 head(mmd)
 
 
-sp.lim <- list(lonmin = 170,
-               lonmax = -170+360,
-               latmin = 20,
+sp.lim <- list(lonmin = 140,
+               lonmax = -120+360,
+               latmin = 32,
                latmax = 47)
 
 ## setup the spatial grid to base likelihoods on
@@ -64,7 +68,7 @@ locs.grid <- setup.locs.grid(sp.lim, res='quarter')
 ## we only need udates here if dateVec resolution is finer than 1 day...
 udates <- seq.Date(as.Date(tag), as.Date(pop), by = 'day')
 
-dir <- '~/work/RCode/HMMoce_run/141259/'
+dir <- '~/work/RCode/HMMoce_run/1090269/'
 dir.create(dir)
 setwd(dir)
 #load('./141259_tryHMMoce_20200724.rda')
@@ -72,11 +76,11 @@ setwd(dir)
 
 sst.dir <- paste0('./tmp/EnvData/sst/')
 if (!dir.exists(sst.dir)) dir.create(sst.dir, recursive = TRUE)
-for (i in 1:3) get.env(udates[i], filename='o180', type = 'sst', sst.type='oi', spatLim = sp.lim, save.dir = sst.dir)
+for (i in 1:length(udates)) get.env(udates[i], filename='oi', type = 'sst', sst.type='oi', spatLim = sp.lim, save.dir = sst.dir)
 
 hycom.dir <- paste0('./tmp/EnvData/hycom/')
 if (!dir.exists(hycom.dir)) dir.create(hycom.dir, recursive = TRUE)
-for (i in 1:3) get.env(udates[i], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir)
+for (i in 4:length(udates)) get.env(udates[i], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir)
 
 bathy.dir <- paste0('./tmp/EnvData/bathy/')
 if (!dir.exists(bathy.dir)) dir.create(bathy.dir, recursive = TRUE)
@@ -86,52 +90,39 @@ bathy <- HMMoce::get.bath.data(sp.lim, save.dir = bathy.dir, res=1)
 bathy <- raster::raster(paste0(bathy.dir, 'bathy.nc'))
 #}
 
-L.light.srss <- calc.srss(light, locs.grid = locs.grid, dateVec = dateVec, res = 1, focalDim = 15) # if using raw light data
+L.light.srss <- calc.srss(light, locs.grid = locs.grid, dateVec = dateVec, res = 1, focalDim = 3) # if using raw light data
 
 L.light <- calc.lightloc(lightloc, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE)
 
-L.sst1 <- calc.sst(tag.sst, filename='ghr', sst.dir = sst.dir, dateVec = dateVec[1:3], sens.err = 3, focalDim = 3, auto.aggr = F)
-L.sst2 <- calc.sst.par(tag.sst, filename='ghr', sst.dir = sst.dir, dateVec = dateVec[1:3], sens.err = 3, focalDim = 3)
-
-mur.dir <- paste0('./tmp/EnvData/sst/mur/')
-if (!dir.exists(mur.dir)) dir.create(mur.dir, recursive = TRUE)
-for (i in 1:3) get.env(udates[i], filename='mur', type = 'sst', sst.type='mur', spatLim = sp.lim, save.dir = mur.dir)
-L.sst3 <- calc.sst(tag.sst, filename='mur', sst.dir = mur.dir, dateVec = dateVec[1:3], sens.err = 3, focalDim = 3, auto.aggr = F)
-L.sst4 <- calc.sst.par(tag.sst, filename='mur', sst.dir = mur.dir, dateVec = dateVec[1:3], sens.err = 3, focalDim = 3)
-
-oi.dir <- paste0('./tmp/EnvData/sst/oi/')
-if (!dir.exists(oi.dir)) dir.create(oi.dir, recursive = TRUE)
-for (i in 1:3) get.env(udates[i], filename='oi', type = 'sst', sst.type='oi', spatLim = sp.lim, save.dir = oi.dir)
-L.sst5 <- calc.sst(tag.sst, filename='oi', sst.dir = oi.dir, dateVec = dateVec[1:3], sens.err = 3, focalDim = 3)
-L.sst6 <- calc.sst.par(tag.sst, filename='oi', sst.dir = oi.dir, dateVec = dateVec[1:3], sens.err = 3, focalDim = 3)
+L.sst <- calc.sst(tag.sst, filename='oi', sst.dir = sst.dir, dateVec = dateVec, sens.err = 3, focalDim = 3, auto.aggr = F)
 
 
 # OCEAN HEAT CONTENT (INTEGRATED PDTS)
-L.ohc <- calc.ohc(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec[1:3], isotherm = '', use.se = F)
-L.ohc <- calc.ohc.par(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec[1:3], isotherm = '', use.se = F)
+L.ohc <- calc.ohc(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec, isotherm = '', use.se = F)
+#L.ohc <- calc.ohc.par(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec[1:3], isotherm = '', use.se = F)
 
 # WORLD OCEAN ATLAS-BASED LIKELIHOODS
 #L.woa <- calc.woa(pdt, woa.data = woa.quarter, sp.lim=sp.lim, focalDim = 9, dateVec = dateVec, use.se = T)
 #L.woa <- calc.woa.par(pdt, woa.data = woa.quarter, sp.lim=sp.lim, focalDim = 9, dateVec = dateVec, use.se = T)
 
 # HYCOM PROFILE BASED LIKELIHOODS
-L.hycom <- calc.hycom(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:3], use.se = T)
-L.hycom.se <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:3], use.se = T)
+L.hycom <- calc.hycom(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec, use.se = T)
+#L.hycom.se <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:3], use.se = T)
 #L.hycom.par <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:5], use.se = F, ncores=2)
 
 #L.bt <- calc.bottomTemp(tag.bt, dateVec[1:5], focalDim = 3, sens.err = 1, bt.dir = sst.dir, filename = 'oisst', varName = 'sst')
 
-bathy_resamp <- raster::resample(bathy, L.sst5) # or whatever grid makes sense to resample to
-L.bathy <- calc.bathy(mmd, bathy_resamp, dateVec[1:3], focalDim = 3, sens.err = 5, lik.type = 'max')
+bathy_resamp <- raster::resample(bathy, L.sst) # or whatever grid makes sense to resample to
+L.bathy <- calc.bathy(mmd, bathy_resamp, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
 
 ## make list of rasters
-L.rasters <- list(L.light = L.light, L.sst = L.sst, L.ohc = L.ohc, L.hycom.se = L.hycom.se, L.bathy = L.bathy)
+L.rasters <- list(L.sst = L.sst, L.ohc = L.ohc, L.hycom = L.hycom, L.bathy = L.bathy)
 
 ## resample rasters
 resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
 L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
-save(L.res, file='141259_L.res_20200727.rda')
-save(L.rasters, file='141259_L.rasters_20200727.rda')
+save(L.res, file='1090269_L.res_20200727.rda')
+save(L.rasters, file='1090269_L.rasters_20200727.rda')
 
 
 likVec <- c(1:5) 
@@ -347,7 +338,7 @@ for (tt in run.idx[5:length(run.idx)]){
       # GET THE MOST PROBABLE TRACK
       tr <- try(calc.track(s, g=L.res$g, dateVec, iniloc), TRUE)
       if (class(tr) == 'try-error') next
-      #plotHMM(s, tr, dateVec, ptt=paste(tt, bb, ii, sep='_'), save.plot = F)
+      plotHMM(s, tr, dateVec, ptt=paste(tt, bb, ii, sep='_'), save.plot = F)
       
       # WRITE OUT RESULTS
       if (is.null(pb)) pars <- c(pars, rep(NA, 3))
@@ -587,7 +578,7 @@ for (i in 1:length(dateVec)){
         xlab='', ylab='', axes=F, main=names(L.res$L.rasters)[combine_idx[[tt]][[1]]])
   axis(2); box()
   world(add=T)
-  points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
+  #points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
   
   
   
@@ -600,7 +591,7 @@ for (i in 1:length(dateVec)){
         xlab='', ylab='', axes = F, main=names(L.res$L.rasters)[combine_idx[[tt]][[2]]])
   axis(1); axis(2); box()
   world(add=T)
-  points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
+  #points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
   
   # legend
   #image(1, lik.mid, t(as.matrix(lik.mid)), breaks=lik.breaks, col=lik.col, axes=FALSE, xlab="",
@@ -616,7 +607,7 @@ for (i in 1:length(dateVec)){
           xlab='', ylab='', axes=F, main=names(L.res$L.rasters)[combine_idx[[tt]][[3]]])
     axis(1); axis(2); box()
     world(add=T)
-    points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
+    #points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
     
     
   }
@@ -632,7 +623,7 @@ for (i in 1:length(dateVec)){
           xlab='', ylab='', axes=F, main=names(L.res$L.rasters)[combine_idx[[tt]][[4]]])
     axis(1); axis(2); box()
     world(add=T)
-    points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
+    #points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
     
     
   }
@@ -645,7 +636,7 @@ for (i in 1:length(dateVec)){
         xlab='', ylab='', axes=F, main=dateVec[i])
   axis(1); axis(2); box()
   world(add=T)
-  points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
+  #points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
   
   #========
   ## plot filter
@@ -654,7 +645,7 @@ for (i in 1:length(dateVec)){
         xlab='', ylab='', axes=F, main='filter')
   axis(1); axis(2); box()
   world(add=T)
-  points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
+  #points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
   
   
   
@@ -665,7 +656,7 @@ for (i in 1:length(dateVec)){
         xlab='', ylab='', axes=F, main='smoother')
   axis(1); axis(2); box()
   world(add=T)
-  points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
+  #points(plocs$lon[which(plocs$dateVec == i)], plocs$lat[which(plocs$dateVec == i)])
   
 }
 dev.off()
