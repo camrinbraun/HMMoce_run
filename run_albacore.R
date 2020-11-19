@@ -3,10 +3,9 @@
 #================
 
 #devtools::load_all('../HMMoce')
-devtools::install_github('camrinbraun/HMMoce', ref='dev')
-library(HMMoce)
-library(raster)
-#library(foieGras)
+#devtools::install_github('camrinbraun/HMMoce', ref='dev')
+#library(HMMoce)
+#library(raster)
 library(tidyverse)
 devtools::load_all('../tags2etuff') ## for etuff functionality
 #devtools::load_all('../analyzePSAT')
@@ -20,10 +19,10 @@ meta$time_coverage_end <- as.POSIXct(meta$time_coverage_end, tz = 'UTC')
 
 
 #================
-## SPATIOTEMPORAL BOUNDS FOR MODELING
+## FILTER LIGHT-BASED LON ESTIMATES
 #================
-## figure out appropriate spatiotemporal bounds (or set of bounds)
-## use this as base for getting env data and performing likelihood calculations
+# This is already done for WC tags as they've all been filtered via GPE2
+# Need to filter the Lotek "raw" estimates
 
 drop_light <- list()
 for (i in 1:nrow(meta)){
@@ -38,20 +37,55 @@ for (i in 1:nrow(meta)){
     tr <- get_track(etuff)
     tr$lon2 <- make360(tr$longitude)
     
-    drop_auto <- which(tr$lon2 < 125 | tr$lon2 > 260)
+    ## do a little bit of automatic filtering and keep an index of those positions
+    auto_idx <- which(tr$lon2 < 125 | tr$lon2 > 260)
+    if (length(drop_auto) > 0){
+      drop_auto <- tr[auto_idx,]
+      tr <- tr[-auto_idx,]
+    }
     
-    tr <- tr[-drop_auto,]
+    world <- map_data('world2')
+    xl <- c(min(tr$lon2) - 2, max(tr$lon2) + 2)
+    yl <- c(min(tr$latitude) - 2, max(tr$latitude) + 2)
+    
+    ## simple map of move data
+    m1 <- ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+      coord_fixed(xlim=xl, ylim=yl) + xlab('') + ylab('') +
+      geom_point(data = tr, aes(x = lon2, y = latitude, colour = DateTime))
+    
+    m2 <- ggplot() + geom_point(data = tr, aes(x = lon2, y = DateTime, colour=DateTime)) +
+      geom_point(data = meta[i,], aes(x=make360(geospatial_lon_start), y=time_coverage_start), col='green') +
+      geom_point(data = meta[i,], aes(x=make360(geospatial_lon_end), y=time_coverage_end), col='red')
+    
+    #m3 <- ggplot() + geom_point(data = tr, aes(x = DateTime, y = latitude, colour=DateTime))
+    
+    lay <- rbind(c(1,2))
+    g <- gridExtra::marrangeGrob(grobs = list(m1, m2), heights = c(8),
+                                width = c(5), layout_matrix = lay)
+    g
+    
     plot(tr$lon2, tr$latitude, col='red'); 
     plot(tr$lon2, tr$DateTime, ylim=c(meta$time_coverage_start[i], meta$time_coverage_end[i])); 
     points(make360(meta$geospatial_lon_start[i]), meta$time_coverage_start[i], pch=24, bg='green')
     points(make360(meta$geospatial_lon_end[i]), meta$time_coverage_end[i], pch=23, bg='red')
-    fields::world(add=T, wrap=c(0,360))#, xlim=c(min(tr$lon2), max(tr$lon2)), ylim=c(min(tr$latitude), max(tr$latitude)))
+    #fields::world(add=T, wrap=c(0,360))#, xlim=c(min(tr$lon2), max(tr$lon2)), ylim=c(min(tr$latitude), max(tr$latitude)))
     by_hand <- identify(tr$lon2, tr$DateTime)
-   
+    
     drop_list[[i]] <- list(drop_auto = drop_auto, by_hand = by_hand)
   }
   
 }
+
+
+
+
+#================
+## SPATIOTEMPORAL BOUNDS FOR MODELING
+#================
+## figure out appropriate spatiotemporal bounds (or set of bounds)
+## use this as base for getting env data and performing likelihood calculations
+
+
 
 
 bounds <- list()
@@ -127,16 +161,6 @@ tlims[,2] <- as.Date(tlims[,2] / 3600 / 24, origin='1970-01-01')
 names(tlims) <- c('tag','pop')
 tlims$instrument_name <- meta$instrument_name
 ggplot(tlims, aes(x=tag, xend=pop, y=instrument_name, yend=instrument_name)) + geom_segment()
-
-#================
-## FILTER LIGHT-BASED LON ESTIMATES
-#================
-# This is already done for WC tags as they've all been filtered via GPE2
-# Need to filter the Lotek "raw" estimates
-
-x <- rnorm(50); y <- rnorm(50)
-plot(x,y)
-identify()
 
 
 ## QC
