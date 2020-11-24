@@ -4,19 +4,22 @@
 
 #devtools::load_all('../HMMoce')
 #devtools::install_github('camrinbraun/HMMoce', ref='dev')
-#library(HMMoce)
+library(HMMoce)
 #library(raster)
 library(tidyverse)
+#devtools::install_github('camrinbraun/tags2etuff')
+#library(tags2etuff)
 devtools::load_all('../tags2etuff') ## for etuff functionality
 #devtools::load_all('../analyzePSAT')
 source('../analyzePSAT/R/make360.R')
 library(fields) ## for quick mapping
+library(raster)
 
-base_dir <- '~/work/RCode/HMMoce_run'
+base_dir <- '~/ebs/RCode/HMMoce_run'
 setwd(base_dir)
 
 meta <- read.table('../nip_drake/RawData/all_tag_meta.csv', sep=',', header=T, stringsAsFactors = F)
-meta <- meta %>% filter(platform == 'Thunnus alalunga' & etuff == 1 & found_problem == '')
+meta <- meta %>% filter(platform == 'Thunnus alalunga' & etuff == 1)
 meta$time_coverage_start <- as.POSIXct(meta$time_coverage_start, tz = 'UTC')
 meta$time_coverage_end <- as.POSIXct(meta$time_coverage_end, tz = 'UTC')
 
@@ -82,8 +85,22 @@ for (i in 1:nrow(meta)){
 
 
 
+limits <- read.table('~/ebs/Data/albacore/alb_limits.csv', sep=',', header=T)
+drop_light <- readRDS('~/ebs/Data/albacore/drop_light_CDB.rds')
 
-for (i in individual){
+#for (i in 1:nrow(meta)){
+for (i in 1:2){
+    
+  if (class(drop_light[[i]]) == 'logical'){
+    drop_vec <- NA
+  } else if (class(drop_light[[i]]) == 'list'){
+    drop_vec <- c(drop_light[[i]]$by_hand)
+  } else if (class(drop_light[[i]]) == 'integer'){
+    drop_vec <- drop_light[[i]]
+  } else{
+    stop('drop_light failed')
+  }
+  if (length(drop_vec) == 0) drop_vec <- NA
   
   ## temporal bounds
   iniloc <- data.frame(matrix(c(lubridate::day(meta$time_coverage_start[i]),
@@ -101,11 +118,59 @@ for (i in individual){
   tag <- iniloc$date[1]
   pop <- iniloc$date[2]
   
-  
   # VECTOR OF DATES FROM DATA. THIS WILL BE THE TIME STEPS, T, IN THE LIKELIHOODS
   dateVec <- seq.POSIXt(tag, pop, by = '24 hours')
   
-  data_dir <- paste0('~/Google Drive File Stream/My Drive/Albacore - All Data/data/', meta$instrument_name[i], '/cdb/')
+  sp.lim <- list(lonmin = make360(limits$lonmin[which(limits$instrument_name == meta$instrument_name[i])]),
+                 lonmax = make360(limits$lonmax[which(limits$instrument_name == meta$instrument_name[i])]),
+                 latmin = limits$latmin[which(limits$instrument_name == meta$instrument_name[i])],
+                 latmax = limits$latmax[which(limits$instrument_name == meta$instrument_name[i])])
+
+  ## setup the spatial grid to base likelihoods on
+  locs.grid <- setup.locs.grid(sp.lim, res='quarter')
+  
+  work_dir <- paste0(base_dir,'/', meta$instrument_name[i], '/')
+  if (!dir.exists(work_dir)) dir.create(work_dir)
+  setwd(work_dir)
+  
+  sst.dir <- paste0('./tmp/sst/')
+  if (!dir.exists(sst.dir)) dir.create(sst.dir, recursive = TRUE)
+  for (b in 1:length(dateVec)){
+    if (!file.exists(paste0(sst.dir, '/', 'oi_', dateVec[b], '.nc'))) get.env(dateVec[b], filename='oi', type = 'sst', sst.type='oi', spatLim = sp.lim, save.dir = sst.dir)
+  }
+  
+  hycom.dir <- paste0('./tmp/hycom/')
+  if (!dir.exists(hycom.dir)) dir.create(hycom.dir, recursive = TRUE)
+  for (b in 1:length(dateVec)){
+  #for (b in 1:length(dateVec)){
+    if (!file.exists(paste0(hycom.dir, '/', 'hycom_', dateVec[b], '.nc'))) {
+      try(
+      get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir), TRUE)
+      #if (b %% 10 == 0){
+        #removeTmpFiles(); 
+      removeTmpFiles(h=0)
+      file.remove(list.files(tempdir(), recursive=TRUE))
+      #gc()
+      #}
+    }
+  }
+  
+  bathy.dir <- paste0('./tmp/bathy/')
+  if (!dir.exists(bathy.dir)) dir.create(bathy.dir, recursive = TRUE)
+  #if (!file.exists(paste0(bathy.dir, 'bathy.nc'))){
+  #  bathy <- HMMoce::get.bath.data(sp.lim, save.dir = bathy.dir, res=1)
+  #} else{ ## OR (once downloaded and reading the .nc later)
+    bathy <- raster::raster('~/ebs/EnvData/bathy/global_bathy_0.01.nc')
+    bathy <- raster::crop(bathy, raster::extent(unlist(sp.lim)))
+  #  raster::writeRaster(bathy, paste0(bathy.dir, '/bathy.nc'), format='CDF', overwrite=TRUE, varname = 'topo')                
+  #}
+  #print(i); gc()
+
+  
+  
+  
+  data_dir <- paste0('~/ebs/Data/albacore/', meta$instrument_name[i], '/cdb/')
+  #  data_dir <- paste0('~/Google Drive File Stream/My Drive/Albacore - All Data/data/', meta$instrument_name[i], '/cdb/')
   etuff_file <- paste(data_dir, meta$instrument_name[i], '_eTUFF.txt', sep='')
   
   etuff <- read_archival(etuff_file)
@@ -115,10 +180,12 @@ for (i in individual){
   #sstVars <- varNames[grep('sst', varNames)]
   #sst1 <- archival_to_etuff(etuff$etuff, vars = c('DateTime', sstVars))
   series <- get_series(etuff)
+  #rm(etuff)
   sst <- data.frame(series %>% filter(!is.na(temperature)) %>% 
                       group_by(as.Date(DateTime)) %>%
                       summarise(sst = temperature[which.min(depth)]))
   names(sst) <- c('Date','Temperature')
+  sst$Date <- as.POSIXct(sst$Date, tz='UTC')
   
   ## mmd is Date, MaxDepth
   mmd <- data.frame(series %>% filter(!is.na(temperature)) %>% 
@@ -126,66 +193,67 @@ for (i in individual){
                       summarise(MaxDepth = max(depth)))
   names(mmd) <- c('Date','MaxDepth')
   mmd$MaxDepth <- round(mmd$MaxDepth, 0)
+  mmd$Date <- as.POSIXct(mmd$Date, tz='UTC')
   
   ## depth-temp profiles: Date, Depth, MeanTemp
   pdt <- data.frame(series %>% filter(!is.na(temperature)))
   pdt$Date <- as.Date(pdt$DateTime)
   hycom_depth <- c(0, 2, 4, 6, 8, 10, 12, 15, 20, 25,
-             30, 35, 40, 45, 50, 60, 70, 80, 90,
-             100, 125, 150, 200, 250, 300, 350, 
-             400, 500, 600, 700, 800, 900, 1000,
-             1250, 1500, 2000, 2500, 3000, 4000, 5000)
+                   30, 35, 40, 45, 50, 60, 70, 80, 90,
+                   100, 125, 150, 200, 250, 300, 350, 
+                   400, 500, 600, 700, 800, 900, 1000,
+                   1250, 1500, 2000, 2500, 3000, 4000, 5000)
   pdt$depth[which(pdt$depth < 0)] <- 0
   pdt$depthInterval <- findInterval(pdt$depth, hycom_depth)
   pdt <- data.frame(pdt %>% group_by(Date, depthInterval) %>% 
-    summarise(MinTemp = min(temperature), MaxTemp = max(temperature), 
-              MeanTemp = mean(temperature), n=n()))
+                      summarise(MinTemp = min(temperature), MaxTemp = max(temperature), 
+                                MeanTemp = mean(temperature), n=n()))
   pdt$depth <- hycom_depth[pdt$depthInterval]
-  pdt <- pdt[,c('Date','depth','MeanTemp')]
+  pdt <- pdt[,c('Date','depth','MinTemp','MaxTemp')]
   names(pdt)[2] <- 'Depth'
-  pdt$MeanTemp <- round(pdt$MeanTemp, 1)
+  pdt$MinTemp <- round(pdt$MinTemp, 1)
+  pdt$MaxTemp <- round(pdt$MaxTemp, 1)
+  pdt$Date <- as.POSIXct(pdt$Date, tz='UTC')
   
-  
-  sp.lim <- list(lonmin = make360(-140),
-                 lonmax = make360(-120),
-                 latmin = 32,
-                 latmax = 47)
-  
-  
-  ## setup the spatial grid to base likelihoods on
-  locs.grid <- setup.locs.grid(sp.lim, res='quarter')
-  
-  
-  work_dir <- paste0('../HMMoce_run/', meta$instrument_name[i], '/')
-  if (!dir.exists(work_dir)) dir.create(work_dir)
-  setwd(work_dir)
-  
-  sst.dir <- paste0('./tmp/sst/')
-  if (!dir.exists(sst.dir)) dir.create(sst.dir, recursive = TRUE)
-  for (b in 1:length(dateVec)) get.env(dateVec[b], filename='oi', type = 'sst', sst.type='oi', spatLim = sp.lim, save.dir = sst.dir)
-  
-  hycom.dir <- paste0('./tmp/hycom/')
-  if (!dir.exists(hycom.dir)) dir.create(hycom.dir, recursive = TRUE)
-  for (b in 1:length(dateVec)) get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir)
-  
-  bathy.dir <- paste0('./tmp/bathy/')
-  if (!dir.exists(bathy.dir)) dir.create(bathy.dir, recursive = TRUE)
-  if (!file.exists(paste0(bathy.dir, 'bathy.nc'))){
-    bathy <- HMMoce::get.bath.data(sp.lim, save.dir = bathy.dir, res=1)
-  } else{ ## OR (once downloaded and reading the .nc later)
-    bathy <- raster::raster(paste0(bathy.dir, 'bathy.nc'))
+  ## get light locs
+  tr <- get_track(etuff)
+  tr$lon2 <- make360(tr$longitude)
+  auto_drop <- which(tr$lon2 < 125 | tr$lon2 > 260)
+  if (length(auto_drop) > 0) tr <- tr[-auto_drop,]
+  if (all(!is.na(drop_vec))) tr <- tr[-drop_vec,]
+  if (meta$manufacturer[i] == 'Lotek'){
+    ## then we won't have error estimates. Musyl error estimates will be applied automatically in the likelihood calc
+    tr <- tr[,c('DateTime','lon2','latitude')]
+    names(tr) <- c('Date','Longitude','Latitude')
+  } else{
+    ## its WC and we do have them
+    tr <- tr[,c('DateTime','lon2','latitude','longitudeError')]
+    names(tr) <- c('Date','Longitude','Latitude','longitudeError')
   }
   
+  world <- map_data('world2')
+  xl <- c(min(tr$lon2) - 5, max(tr$lon2) + 5)
+  yl <- c(min(tr$latitude) - 5, max(tr$latitude) + 5)
+  
+  ## simple map of move data
+  ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+    coord_fixed(xlim=xl, ylim=yl) + xlab('') + ylab('') +
+    geom_point(data=tr, aes(x=lon2, y=latitude, colour=DateTime)) +
+    geom_point(data = meta[i,], aes(x=make360(geospatial_lon_start), y=geospatial_lat_start), col='green') +
+    geom_point(data = meta[i,], aes(x=make360(geospatial_lon_end), y=geospatial_lat_end), col='red')
+    
+  
   ## LIGHT
-  #L.light.srss <- calc.srss(light, locs.grid = locs.grid, dateVec = dateVec, res = 1, focalDim = 15) # if using raw light data
-  L.light <- calc.lightloc(lightloc, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE)
+  L.light <- calc.lightloc(tr, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE)
   
   ## SST
-  L.sst <- calc.sst.par(tag.sst, filename='ghr', sst.dir = sst.dir, dateVec = dateVec, sens.err = 3, focalDim = 3)
+  L.sst <- calc.sst.par(sst, filename='oi', sst.dir = sst.dir, dateVec = dateVec, sens.err = 3, focalDim = 3)
+  ## ~9 mins for Lotek 0394 using 8 cores (m4.2xlarge)
   
   # OCEAN HEAT CONTENT (INTEGRATED PDTS)
   #L.ohc <- calc.ohc(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec, isotherm = '', use.se = F)
   L.ohc <- calc.ohc.par(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec, isotherm = '', use.se = F)
+  ## task 1 failed - "invalid type (NULL) for variable 'pdt.i$mintemp'"
   
   # WORLD OCEAN ATLAS-BASED LIKELIHOODS
   #L.woa <- calc.woa(pdt, woa.data = woa.quarter, sp.lim=sp.lim, focalDim = 9, dateVec = dateVec, use.se = T)
@@ -209,7 +277,7 @@ for (i in individual){
   L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
   save(L.res, file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
   save(L.rasters, file=paste0(meta$instrument_name[i],'_L.rasters_', format(Sys.Date(), '%Y%m%d'), '.rda'))
-            
+  
   
   run_idx <- list(c(1:4),
                   c(1,2,4),
