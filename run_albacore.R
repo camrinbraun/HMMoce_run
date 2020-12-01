@@ -23,74 +23,14 @@ meta <- meta %>% filter(platform == 'Thunnus alalunga' & etuff == 1)
 meta$time_coverage_start <- as.POSIXct(meta$time_coverage_start, tz = 'UTC')
 meta$time_coverage_end <- as.POSIXct(meta$time_coverage_end, tz = 'UTC')
 
-
-#================
-## FILTER LIGHT-BASED LON ESTIMATES
-#================
-# This is already done for WC tags as they've all been filtered via GPE2
-# Need to filter the Lotek "raw" estimates
-
-drop_light <- list()
-for (i in 1:nrow(meta)){
-  
-  if (meta$manufacturer[i] != 'Lotek'){
-    drop_light[[i]] <- NA
-  } else{
-    # light-based locations
-    data_dir <- paste0('~/Google Drive File Stream/My Drive/Albacore - All Data/data/', meta$instrument_name[i], '/cdb/')
-    etuff_file <- paste(data_dir, meta$instrument_name[i], '_eTUFF.txt', sep='')
-    etuff <- read_archival(etuff_file)
-    tr <- get_track(etuff)
-    tr$lon2 <- make360(tr$longitude)
-    
-    ## do a little bit of automatic filtering and keep an index of those positions
-    auto_idx <- which(tr$lon2 < 125 | tr$lon2 > 260)
-    if (length(drop_auto) > 0){
-      drop_auto <- tr[auto_idx,]
-      tr <- tr[-auto_idx,]
-    }
-    
-    world <- map_data('world2')
-    xl <- c(min(tr$lon2) - 2, max(tr$lon2) + 2)
-    yl <- c(min(tr$latitude) - 2, max(tr$latitude) + 2)
-    
-    ## simple map of move data
-    m1 <- ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
-      coord_fixed(xlim=xl, ylim=yl) + xlab('') + ylab('') +
-      geom_point(data = tr, aes(x = lon2, y = latitude, colour = DateTime))
-    
-    m2 <- ggplot() + geom_point(data = tr, aes(x = lon2, y = DateTime, colour=DateTime)) +
-      geom_point(data = meta[i,], aes(x=make360(geospatial_lon_start), y=time_coverage_start), col='green') +
-      geom_point(data = meta[i,], aes(x=make360(geospatial_lon_end), y=time_coverage_end), col='red')
-    
-    #m3 <- ggplot() + geom_point(data = tr, aes(x = DateTime, y = latitude, colour=DateTime))
-    
-    lay <- rbind(c(1,2))
-    g <- gridExtra::marrangeGrob(grobs = list(m1, m2), heights = c(8),
-                                 width = c(5), layout_matrix = lay)
-    g
-    
-    plot(tr$lon2, tr$latitude, col='red'); 
-    plot(tr$lon2, tr$DateTime, ylim=c(meta$time_coverage_start[i], meta$time_coverage_end[i])); 
-    points(make360(meta$geospatial_lon_start[i]), meta$time_coverage_start[i], pch=24, bg='green')
-    points(make360(meta$geospatial_lon_end[i]), meta$time_coverage_end[i], pch=23, bg='red')
-    #fields::world(add=T, wrap=c(0,360))#, xlim=c(min(tr$lon2), max(tr$lon2)), ylim=c(min(tr$latitude), max(tr$latitude)))
-    by_hand <- identify(tr$lon2, tr$DateTime)
-    
-    drop_list[[i]] <- list(drop_auto = drop_auto, by_hand = by_hand)
-  }
-  
-}
-
-
-
-
+## a set of manually defined spatial bounds for each fish
 limits <- read.table('~/ebs/Data/albacore/alb_limits.csv', sep=',', header=T)
+
+## which light-based lon estimates need to be removed from further analysis?
 drop_light <- readRDS('~/ebs/Data/albacore/drop_light_CDB.rds')
 
-#for (i in 1:nrow(meta)){
-for (i in 1:2){
-    
+for (i in 1:nrow(meta)){
+  
   if (class(drop_light[[i]]) == 'logical'){
     drop_vec <- NA
   } else if (class(drop_light[[i]]) == 'list'){
@@ -125,7 +65,7 @@ for (i in 1:2){
                  lonmax = make360(limits$lonmax[which(limits$instrument_name == meta$instrument_name[i])]),
                  latmin = limits$latmin[which(limits$instrument_name == meta$instrument_name[i])],
                  latmax = limits$latmax[which(limits$instrument_name == meta$instrument_name[i])])
-
+  
   ## setup the spatial grid to base likelihoods on
   locs.grid <- setup.locs.grid(sp.lim, res='quarter')
   
@@ -141,13 +81,20 @@ for (i in 1:2){
   
   hycom.dir <- paste0('./tmp/hycom/')
   if (!dir.exists(hycom.dir)) dir.create(hycom.dir, recursive = TRUE)
+  
+  ## check for hycom. if its not available pull it down from the s3 bucket
+  if (length(list.files(hycom.dir)) != length(dateVec)){
+    system(paste0('aws s3 cp s3://braun-data/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/ /home/rstudio/ebs/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/'))
+    if (length(list.files(hycom.dir)) != length(dateVec)) stop('Check that all daily hycom data is available for this individual run.')
+  }
+  
+  ## this is how we get hycom. it will skip days for which data already exists
   for (b in 1:length(dateVec)){
-  #for (b in 1:length(dateVec)){
     if (!file.exists(paste0(hycom.dir, '/', 'hycom_', dateVec[b], '.nc'))) {
       try(
-      get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir), TRUE)
+        get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir), TRUE)
       #if (b %% 10 == 0){
-        #removeTmpFiles(); 
+      #removeTmpFiles(); 
       removeTmpFiles(h=0)
       file.remove(list.files(tempdir(), recursive=TRUE))
       #gc()
@@ -160,12 +107,12 @@ for (i in 1:2){
   #if (!file.exists(paste0(bathy.dir, 'bathy.nc'))){
   #  bathy <- HMMoce::get.bath.data(sp.lim, save.dir = bathy.dir, res=1)
   #} else{ ## OR (once downloaded and reading the .nc later)
-    bathy <- raster::raster('~/ebs/EnvData/bathy/global_bathy_0.01.nc')
-    bathy <- raster::crop(bathy, raster::extent(unlist(sp.lim)))
+  bathy <- raster::raster('~/ebs/EnvData/bathy/global_bathy_0.01.nc')
+  bathy <- raster::crop(bathy, raster::extent(unlist(sp.lim)))
   #  raster::writeRaster(bathy, paste0(bathy.dir, '/bathy.nc'), format='CDF', overwrite=TRUE, varname = 'topo')                
   #}
   #print(i); gc()
-
+  
   
   
   
@@ -235,13 +182,13 @@ for (i in 1:2){
   xl <- c(min(tr$lon2) - 5, max(tr$lon2) + 5)
   yl <- c(min(tr$latitude) - 5, max(tr$latitude) + 5)
   
-  ## simple map of move data
+  ## simple map of move data just to double-check before calculating light-based likelihoods
   ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
     coord_fixed(xlim=xl, ylim=yl) + xlab('') + ylab('') +
     geom_point(data=tr, aes(x=lon2, y=latitude, colour=DateTime)) +
     geom_point(data = meta[i,], aes(x=make360(geospatial_lon_start), y=geospatial_lat_start), col='green') +
     geom_point(data = meta[i,], aes(x=make360(geospatial_lon_end), y=geospatial_lat_end), col='red')
-    
+  
   
   ## LIGHT
   L.light <- calc.lightloc(tr, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE)
@@ -266,8 +213,19 @@ for (i in 1:2){
   
   #L.bt <- calc.bottomTemp(tag.bt, dateVec[1:5], focalDim = 3, sens.err = 1, bt.dir = sst.dir, filename = 'oisst', varName = 'sst')
   
-  bathy_resamp <- raster::resample(bathy, L.sst) # or whatever grid makes sense to resample to
-  L.bathy <- calc.bathy(mmd, bathy_resamp, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
+  
+  ## lets see how the below works using the full-res bathymetry calculating likelihoods in parallel
+  ## you can see i setup an if() to coarsen the bathy grid for those that moved offshore but
+  ## i changed my mind given that all fish spend some time coastal and those particular movements
+  ## likely will benefit from higher-res bathymetry
+  #if (sp.lim$lonmin < 210){
+  ## if the fish made extensive movements offshore (to the west), coarsen the grid to ease computation
+  #  bathy_resamp <- raster::resample(bathy, L.sst) # or whatever grid makes sense to resample to
+  #  L.bathy <- calc.bathy(mmd, bathy_resamp, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
+  #} else{
+  ## otherwise use the full resolution bathymetry for a fish that stayed more coastal
+  L.bathy <- calc.bathy.par(mmd, bathy, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
+  #}
   
   ## make list of rasters
   L.rasters <- list(L.light = L.light, L.sst = L.sst, L.ohc = L.ohc, L.bathy = L.bathy)
@@ -285,7 +243,6 @@ for (i in 1:2){
   
   ## each run idx combination
   for (tt in 1:length(run_idx)){
-    #for (tt in run.idx[5:4]){
     
     L <- make.L(L.res$L.rasters[run_idx[[tt]]], iniloc, dateVec)
     #L.mle <- coarse.L(L, L.res$L.rasters)$L.mle
@@ -365,10 +322,6 @@ for (i in 1:2){
     ## about 7 hrs per iteration on blue shark 141259 w 4 cores
     ## about 1.6 hrs per iteration on blue shark 141259 w 15 cores
     ## about 2 mins with MLE grid but results way different
-    #> pars.ga
-    #$par
-    #sigma1.ncell sigma2.ncell pswitch11 pswitch22
-    #[1,]     4.937692    0.2290643 0.4023717  0.556778
     
     sigmas = pars[1:2]
     sizes = rep(ceiling(sigmas[1]*4),2)
@@ -408,10 +361,13 @@ for (i in 1:2){
                 sep=',', append=T, row.names = F, col.names = F)
     
   } ## run_idx
+  
+  file.remove(list.files(hycom.dir, full.names = T))
+  
 } ## individual loop
 
 
-
+## this should be the end of the model building and we're ready for model selection?
 
 
 
@@ -725,3 +681,66 @@ for (i in 1:length(dateVec)){
   
 }
 dev.off()
+
+
+
+
+#================
+## FILTER LIGHT-BASED LON ESTIMATES
+#================
+# This is already done for WC tags as they've all been filtered via GPE2
+# Need to filter the Lotek "raw" estimates
+
+drop_light <- list()
+for (i in 1:nrow(meta)){
+  
+  if (meta$manufacturer[i] != 'Lotek'){
+    drop_light[[i]] <- NA
+  } else{
+    # light-based locations
+    data_dir <- paste0('~/Google Drive File Stream/My Drive/Albacore - All Data/data/', meta$instrument_name[i], '/cdb/')
+    etuff_file <- paste(data_dir, meta$instrument_name[i], '_eTUFF.txt', sep='')
+    etuff <- read_archival(etuff_file)
+    tr <- get_track(etuff)
+    tr$lon2 <- make360(tr$longitude)
+    
+    ## do a little bit of automatic filtering and keep an index of those positions
+    auto_idx <- which(tr$lon2 < 125 | tr$lon2 > 260)
+    if (length(drop_auto) > 0){
+      drop_auto <- tr[auto_idx,]
+      tr <- tr[-auto_idx,]
+    }
+    
+    world <- map_data('world2')
+    xl <- c(min(tr$lon2) - 2, max(tr$lon2) + 2)
+    yl <- c(min(tr$latitude) - 2, max(tr$latitude) + 2)
+    
+    ## simple map of move data
+    m1 <- ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+      coord_fixed(xlim=xl, ylim=yl) + xlab('') + ylab('') +
+      geom_point(data = tr, aes(x = lon2, y = latitude, colour = DateTime))
+    
+    m2 <- ggplot() + geom_point(data = tr, aes(x = lon2, y = DateTime, colour=DateTime)) +
+      geom_point(data = meta[i,], aes(x=make360(geospatial_lon_start), y=time_coverage_start), col='green') +
+      geom_point(data = meta[i,], aes(x=make360(geospatial_lon_end), y=time_coverage_end), col='red')
+    
+    #m3 <- ggplot() + geom_point(data = tr, aes(x = DateTime, y = latitude, colour=DateTime))
+    
+    lay <- rbind(c(1,2))
+    g <- gridExtra::marrangeGrob(grobs = list(m1, m2), heights = c(8),
+                                 width = c(5), layout_matrix = lay)
+    g
+    
+    plot(tr$lon2, tr$latitude, col='red'); 
+    plot(tr$lon2, tr$DateTime, ylim=c(meta$time_coverage_start[i], meta$time_coverage_end[i])); 
+    points(make360(meta$geospatial_lon_start[i]), meta$time_coverage_start[i], pch=24, bg='green')
+    points(make360(meta$geospatial_lon_end[i]), meta$time_coverage_end[i], pch=23, bg='red')
+    #fields::world(add=T, wrap=c(0,360))#, xlim=c(min(tr$lon2), max(tr$lon2)), ylim=c(min(tr$latitude), max(tr$latitude)))
+    by_hand <- identify(tr$lon2, tr$DateTime)
+    
+    drop_list[[i]] <- list(drop_auto = drop_auto, by_hand = by_hand)
+  }
+  
+}
+
+
