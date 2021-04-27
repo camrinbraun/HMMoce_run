@@ -64,7 +64,7 @@ sp.lim <- list(lonmin = -75,
 ## setup the spatial grid to base likelihoods on
 locs.grid <- setup.locs.grid(sp.lim, res='quarter')
 
-## we only need udates here if dateVec resolution is finer than 1 day...
+## we only need udates here if dateVec resolution is finer than 1 day as we typically only download env data as fine as daily resolution
 udates <- seq.Date(as.Date(tag), as.Date(pop), by = 'day')
 
 setwd('~/ebs/Data/HMMoce_run/141259/')
@@ -434,19 +434,20 @@ for (i in 1:nrow(out)){
   if (class(result) == 'try-error') next
   # res <- list(outVec = outVec, s = s, g = L.res$g, tr = tr, dateVec = dateVec, iniloc = iniloc)
 
-  comp <- compareTracks(res$tr, plocs, dateVec)
+  comp <- compareTracks(res$tr, plocs, dateVec, plot=FALSE)
   
   out[i,9:ncol(out)] <- unlist(comp)
-  
+  print(i)
   rm(res)
 }
 
 summary(out)
+write.table(out, '141259_HMMoce_results_outVec_20200824_compare.csv', sep=',', col.names=T, row.names=F)
 
 out %>%
   select(-gcd_min, -gcd_max) %>%
   gather(-likvec, -pars, -ii, -pars1, -pars2, -pars3, -pars4, -nll, key = "var", value = "value") %>% 
-  ggplot(aes(x = value, y = nll, color = factor(likvec), shape = factor(pars))) +
+  ggplot(aes(x = value, y = nll, color = factor(likvec), shape = factor(pars), size=ii*.5)) +
   geom_point() + ylim(90,200) +
   facet_wrap(~ var, scales = "free") +
   theme_bw()
@@ -456,6 +457,18 @@ out %>%
   filter(pars %in% c(1,3,5)) %>%
   #gather(-likvec, -pars, -ii, -pars1, -pars2, -pars3, -pars4, -nll, key = "var", value = "value") %>% 
   ggplot(aes(as.factor(pars), rmse.lon)) +
+  geom_boxplot() 
+
+out_ii <- out %>%
+  group_by(likvec, pars) %>% summarise(nll1 = nll[which(ii==1)], nll2 = nll[which(ii==2)],
+                                       gcd_mean1 = gcd_mean[which(ii==1)], gcd_mean2 = gcd_mean[which(ii==2)])
+out_ii$diff <- out_ii$gcd_mean2 - out_ii$gcd_mean1  
+out_ii$diff_nll <- out_ii$nll2 - out_ii$nll1  
+
+select(ii, rmse.lon) %>%
+  #filter(pars %in% c(1,3,5)) %>%
+  #gather(-likvec, -pars, -ii, -pars1, -pars2, -pars3, -pars4, -nll, key = "var", value = "value") %>% 
+  ggplot(aes(as.factor(ii), rmse.lon)) +
   geom_boxplot() 
 
 out %>%
