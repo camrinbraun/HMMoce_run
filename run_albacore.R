@@ -3,7 +3,7 @@
 #================
 
 #devtools::load_all('../HMMoce')
-devtools::install_github('camrinbraun/HMMoce', ref='dev')
+#devtools::install_github('camrinbraun/HMMoce', ref='dev')
 library(HMMoce)
 #library(raster)
 library(tidyverse)
@@ -14,17 +14,6 @@ devtools::load_all('../tags2etuff') ## for etuff functionality
 source('../analyzePSAT/R/make360.R')
 library(fields) ## for quick mapping
 library(raster)
-<<<<<<< HEAD
-library(foreach)
-#library(GA) ## for genetic algorithm
-
-# aws s3 sync /home/rstudio/ebs/RCode/HMMoce_run/ s3://braunmpg/RCode/HMMoce_run/ --exclude "*" --include "*_res*"
-# aws s3 sync /home/rstudio/ebs/RCode/HMMoce_run/ s3://braunmpg/RCode/HMMoce_run/ --exclude "*" --include "*L_tt*"
-# aws s3 sync /home/rstudio/ebs/RCode/HMMoce_run/ s3://braunmpg/RCode/HMMoce_run/ --exclude "*" --include "*L.res*"
-# aws s3 sync /home/rstudio/ebs/RCode/HMMoce_run/ s3://braunmpg/RCode/HMMoce_run/ --exclude "*" --include "*L.rasters*"
-=======
-#library(GA) ## for genetic algorithm
->>>>>>> 2597194652866eb91bd5bf3a16df89994df86710
 
 base_dir <- '~/ebs/RCode/HMMoce_run'
 setwd(base_dir)
@@ -39,8 +28,6 @@ limits <- read.table('~/ebs/Data/albacore/alb_limits.csv', sep=',', header=T)
 
 ## which light-based lon estimates need to be removed from further analysis?
 drop_light <- readRDS('~/ebs/Data/albacore/drop_light_CDB.rds')
-<<<<<<< HEAD
-
 
 ## redo SST, calc new L.sst done
 id_idx <- which(meta$instrument_name %in%
@@ -48,16 +35,7 @@ id_idx <- which(meta$instrument_name %in%
                     "172419_2003_390191"))
 
 
-
-for (i in 4:nrow(meta)){
-
-#for (i in 10:nrow(meta)){
-=======
-
-#for (i in 1:nrow(meta)){
-
 for (i in 3:nrow(meta)){
->>>>>>> 2597194652866eb91bd5bf3a16df89994df86710
   
   if (class(drop_light[[i]]) == 'logical'){
     drop_vec <- NA
@@ -115,55 +93,41 @@ for (i in 3:nrow(meta)){
   
   hycom.dir <- paste0('./tmp/hycom/')
   if (!dir.exists(hycom.dir)) dir.create(hycom.dir, recursive = TRUE)
-<<<<<<< HEAD
   ## check for hycom. if its not available pull it down from the s3 bucket
   if (length(list.files(hycom.dir)) != length(dateVec)){
     #system(
-      paste0('aws s3 sync s3://braunmpg/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/ /home/rstudio/ebs/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/')
+    paste0('aws s3 sync s3://braunmpg/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/ /home/rstudio/ebs/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/')
     #)
     if (length(list.files(hycom.dir)) != length(dateVec)) stop('Check that all daily hycom data is available for this individual run.')
   }
   
   ## this is how we get hycom. it will skip days for which data already exists
   for (b in 1:length(dateVec)){
-    setwd(work_dir)
-=======
-  
-  ## check for hycom. if its not available pull it down from the s3 bucket
-  #if (length(list.files(hycom.dir)) != length(dateVec)){
-  #  system(paste0('aws s3 cp s3://braun-data/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/ /home/rstudio/ebs/RCode/HMMoce_run/', meta$instrument_name[i], '/tmp/hycom/'))
-  #  if (length(list.files(hycom.dir)) != length(dateVec)) stop('Check that all daily hycom data is available for this individual run.')
-  #}
-  
-  ## this is how we get hycom. it will skip days for which data already exists
-  for (b in 1:length(dateVec)){
->>>>>>> 2597194652866eb91bd5bf3a16df89994df86710
     if (!file.exists(paste0(hycom.dir, '/', 'hycom_', dateVec[b], '.nc'))) {
       print(b)
       try(
-<<<<<<< HEAD
-      get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir), TRUE)
+        get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir), TRUE)
       
-  #    #if (b %% 10 == 0){
-  #      #removeTmpFiles(); 
-  #    removeTmpFiles(h=0)
-  #    file.remove(list.files(tempdir(), recursive=TRUE))
-  #    #gc()
-      }
+      #    #if (b %% 10 == 0){
+      #      #removeTmpFiles(); 
+      #    removeTmpFiles(h=0)
+      #    file.remove(list.files(tempdir(), recursive=TRUE))
+      #    #gc()
     }
+  }
   #}
-    
+  
   #bathy.dir <- paste0('./tmp/bathy/')
   #if (!dir.exists(bathy.dir)) dir.create(bathy.dir, recursive = TRUE)
   #if (!file.exists(paste0(bathy.dir, 'bathy.nc'))){
   #  bathy <- HMMoce::get.bath.data(sp.lim, save.dir = bathy.dir, res=1)
   #} else{ ## OR (once downloaded and reading the .nc later)
-    bathy <- raster::raster('~/ebs/EnvData/bathy/global_bathy_0.01.nc')
-    bathy <- raster::crop(bathy, raster::extent(unlist(sp.lim)))
+  bathy <- raster::raster('~/ebs/EnvData/bathy/global_bathy_0.01.nc')
+  bathy <- raster::crop(bathy, raster::extent(unlist(sp.lim)))
   #  raster::writeRaster(bathy, paste0(bathy.dir, '/bathy.nc'), format='CDF', overwrite=TRUE, varname = 'topo')                
   #}
   #print(i); gc()
-
+  
   data_dir <- paste0('~/ebs/Data/albacore/', meta$instrument_name[i], '/cdb/')
   #  data_dir <- paste0('~/Google Drive File Stream/My Drive/Albacore - All Data/data/', meta$instrument_name[i], '/cdb/')
   etuff_file <- paste(data_dir, meta$instrument_name[i], '_eTUFF.txt', sep='')
@@ -188,7 +152,7 @@ for (i in 3:nrow(meta)){
   sst <- sst %>% dplyr::select(as.Date.DateTime., sst, sst_depth)
   names(sst) <- c('Date','Temperature', 'sst_depth')
   sst$Date <- as.POSIXct(sst$Date, tz='UTC')
-   
+  
   
   sst2 <- archival_to_etuff(etuff$etuff, vars ='sst')
   sst2 <- sst2 %>% group_by(as.Date(DateTime)) %>% summarise(n=n(), Temperature = mean(sst, na.rm=T), mean_sst = mean(sstMean, na.rm=T))
@@ -265,8 +229,9 @@ for (i in 3:nrow(meta)){
     names(tr) <- c('Date','Longitude','Latitude')
   } else{
     ## its WC and we do have them
-    tr <- tr[,c('DateTime','lon2','latitude','longitudeError')]
-    names(tr) <- c('Date','Longitude','Latitude','longitudeError')
+    tr <- tr[,c('DateTime','lon2','latitude','longitudeError', 'latitudeError')]
+    #tr <- tr[,c('DateTime','lon2','latitude','longitudeError')]
+    names(tr) <- c('Date','Longitude','Latitude','longitudeError','latitudeError')
   }
   if (i == 8) tr <- tr %>% filter(Date != as.POSIXct('2013-06-25', tz='UTC')) ## weird one we missed in filtering
   
@@ -274,17 +239,37 @@ for (i in 3:nrow(meta)){
   xl <- c(min(tr$Longitude) - 5, max(tr$Longitude) + 5)
   yl <- c(min(tr$Latitude) - 5, max(tr$Latitude) + 5)
   
+  #load(fList[max(grep('_1_HMMoce_res', fList))])
+  #res1 <- res; rm(res)
+  #load(fList[max(grep('_2_HMMoce_res', fList))])
+  #res2 <- res; rm(res)
+  #load(fList[max(grep('_3_HMMoce_res', fList))])
+  #res3 <- res; rm(res)
+  ##load(fList[max(grep('_4_HMMoce_res', fList))])
+  #res4 <- res; rm(res)
+  
   ## simple map of move data just to double-check before calculating light-based likelihoods
-  ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+  p1 <- ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
     coord_fixed(xlim=xl, ylim=yl) + xlab('') + ylab('') +
     geom_point(data=tr, aes(x=Longitude, y=Latitude, colour=Date)) +
     geom_point(data = meta[i,], aes(x=make360(geospatial_lon_start), y=geospatial_lat_start), col='green') +
     geom_point(data = meta[i,], aes(x=make360(geospatial_lon_end), y=geospatial_lat_end), col='red') #+
-    #geom_point(data = res$tr, aes(x=lon, y=lat))
-    
+  #geom_point(data = res$tr, aes(x=lon, y=lat))
+  p1 <- p1 + geom_path(data = res$tr, aes(x=lon, y=lat), colour='green') #+
+    #geom_path(data = res2$tr, aes(x=lon, y=lat), colour='red') +
+    #geom_path(data = res3$tr, aes(x=lon, y=lat), colour='purple') #+
+    #p1 <- p1 + geom_path(data = res4$tr, aes(x=lon, y=lat), colour='orange')
+  #p1 <- p1 + geom_path(data = tr, aes(x=lon, y=lat), colour='red', linetype='dashed') 
+  p1
   
   ## LIGHT
-  L.light <- calc.lightloc(tr, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE)
+  L.light <- calc.lightloc(tr, locs.grid = locs.grid, dateVec = dateVec, errEll = TRUE)
+  L.rasters <- L.res$L.rasters
+  L.rasters$L.light <- L.light
+  resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
+  L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
+  save(L.res, file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
+  
   
   ## SST
   #L.sst <- calc.sst.par(sst, filename='oi', sst.dir = sst.dir, dateVec = dateVec[1:10], sens.err = 3, focalDim = 3)
@@ -303,7 +288,7 @@ for (i in 3:nrow(meta)){
     plot(L.sst[[b]], main='new sst')
     world(add=T, wrap=c(0,360))
   }
- 
+  
   dev.off()
   
   # OCEAN HEAT CONTENT (INTEGRATED PDTS)
@@ -315,7 +300,7 @@ for (i in 3:nrow(meta)){
   L.ohc <- raster::shift(L.ohc, dx=360)
   #writeRaster(L.ohc, filename = paste0(work_dir, 'L.ohc.grd'), format='raster')
   ## 50 mins for Lotek 0396 using 40 cores (m4.10xlarge)
-
+  
   # WORLD OCEAN ATLAS-BASED LIKELIHOODS
   #L.woa <- calc.woa(pdt, woa.data = woa.quarter, sp.lim=sp.lim, focalDim = 9, dateVec = dateVec, use.se = T)
   #L.woa <- calc.woa.par(pdt, woa.data = woa.quarter, sp.lim=sp.lim, focalDim = 9, dateVec = dateVec, use.se = T)
@@ -324,17 +309,15 @@ for (i in 3:nrow(meta)){
   #L.hycom <- calc.hycom(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:3], use.se = T)
   #L.hycom.se <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:3], use.se = T)
   #L.hycom.par <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:5], use.se = F, ncores=2)
-=======
-        get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir), TRUE)
-      #if (b %% 10 == 0){
-      #removeTmpFiles(); 
-      removeTmpFiles(h=0)
-      file.remove(list.files(tempdir(), recursive=TRUE))
-      #gc()
-      #}
-    }
-  }
+  get.env(dateVec[b], filename='hycom', type = 'hycom', spatLim = sp.lim, save.dir = hycom.dir)
+  #if (b %% 10 == 0){
+  #removeTmpFiles(); 
+  removeTmpFiles(h=0)
+  file.remove(list.files(tempdir(), recursive=TRUE))
+  #gc()
+  #}
 }
+
 
 bathy.dir <- paste0('./tmp/bathy/')
 if (!dir.exists(bathy.dir)) dir.create(bathy.dir, recursive = TRUE)
@@ -461,9 +444,14 @@ L.ohc <- calc.ohc.par(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = date
 ## otherwise use the full resolution bathymetry for a fish that stayed more coastal
 L.bathy <- calc.bathy.par(mmd, bathy, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
 #}
+L.rasters <- L.res$L.rasters
+L.rasters$L.light <- L.light
+resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
+L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
+save(L.res, file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
 
 ## make list of rasters
-L.rasters <- list(L.light = L.light, L.sst = L.sst, L.ohc = L.ohc, L.bathy = L.bathy)
+#L.rasters <- list(L.light = L.light, L.sst = L.sst, L.ohc = L.ohc, L.bathy = L.bathy)
 
 ## resample rasters
 resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
@@ -476,7 +464,10 @@ load(file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d')
 
 run_idx <- list(c(1:4),
                 c(1,2,4),
-                c(1,3,4))
+                c(1,3,4),
+                c(1,4),
+                c(1),
+                c(1:2))
 
 ## each run idx combination
 for (tt in 1:length(run_idx)){
@@ -522,16 +513,16 @@ for (tt in 1:length(run_idx)){
   ## about 30 mins per iteration on blue shark 141259
   
   #ceiling(parallel::detectCores() * .9)
-  #pars.ga.one <- opt.params(pars.init = c(2), 
-  #                          lower.bounds = c(1), 
-  #                          upper.bounds = c(8), 
-  #                          g = L.res$g, 
+  pars.ga.one <- HMMoce:::opt.params(pars.init = c(2), 
+                            lower.bounds = c(1), 
+                            upper.bounds = c(8), 
+                            g = L.res$g, 
   #                          #g = g.mle, 
-  #                          L = L, 
+                            L = L, 
   #                          #L = L.mle, 
-  #                          alg.opt = 'ga', 
-  #                          write.results = FALSE,
-  #                          ncores = ceiling(parallel::detectCores() * .9))
+                            alg.opt = 'ga', 
+                            write.results = FALSE,
+                            ncores = ceiling(parallel::detectCores() * .9))
   #ncores = 2)
   
   #pars.ga.mle <- opt.params(pars.init = c(2,.2,.6,.8), 
@@ -558,66 +549,82 @@ for (tt in 1:length(run_idx)){
                                  alg.opt = 'ga', 
                                  write.results = FALSE,
                                  ncores = 8)
-  #ncores = ceiling(parallel::detectCores() * .9))
-  pars <- pars.ga$par
-  sigmas = pars[1:2]
-  sizes = rep(ceiling(sigmas[1]*4),2)
-  pb = pars[3:4]
-  muadvs = c(0,0)
   
-  ## behav 1
+  
+  #pars <- pars.ga$par
+  pars <- pars.ga.one$par
+  if (length(pars) == 4){
+    sigmas = pars[1:2]
+    sizes = rep(ceiling(sigmas[1]*4),2)
+    pb = pars[3:4]
+    muadvs = c(0,0)
+  } else if (length(pars) == 1){
+    sigmas = pars[1]
+    sizes = rep(ceiling(sigmas[1]*4),2)
+    pb = NULL
+    muadvs = c(0)
+  }
+  
+  # behav 1
   if(sizes[1]%%2==0){sizes[1]=sizes[1]+1}
   ss=sum(gausskern.nostd(sizes[1],sigmas[1],muadv=muadvs[1]))
   while(ss<.999){
     sizes[1]=sizes[1]+2
     ss=sum(gausskern.nostd(sizes[1],sigmas[1],muadv=muadvs[1]))
   }
-  K1 <- HMMoce:::gausskern.pg(sizes[1],sigmas[1],muadv=muadvs[1])
+  K1 = HMMoce:::gausskern.pg(sizes[1],sigmas[1],muadv=muadvs[1])
   rm(ss)
-  K1 <- HMMoce:::mask.K(K1)
+  K1=HMMoce:::mask.K(K1)
   
-  ## behav 2
-  if(sizes[2] %% 2 == 0) sizes[2] <- sizes[2] + 1
-  ss <- sum(gausskern.nostd(sizes[2], sigmas[2], muadv = muadvs[2]))
-  while(ss < .999){
-    sizes[2] <- sizes[2] + 2
-    ss <- sum(gausskern.nostd(sizes[2], sigmas[2], muadv = muadvs[2]))
+  # behav 2
+  if (!is.null(pb)){
+    if(sizes[2]%%2==0){sizes[2]=sizes[2]+1}
+    ss=sum(gausskern.nostd(sizes[2],sigmas[2],muadv=muadvs[2]))
+    while(ss<.999){
+      sizes[2]=sizes[2]+2
+      ss=sum(gausskern.nostd(sizes[2],sigmas[2],muadv=muadvs[2]))
+    }
+    K2 = HMMoce:::gausskern.pg(sizes[2],sigmas[2],muadv=muadvs[2])
+    rm(ss)
+    K2=HMMoce:::mask.K(K2)
   }
-  K2 <- HMMoce:::gausskern.pg(sizes[2], sigmas[2], muadv = muadvs[2])
-  K2 <- HMMoce:::mask.K(K2)
->>>>>>> 2597194652866eb91bd5bf3a16df89994df86710
   
-  P <- matrix(c(pb[1], 1 - pb[1], 1 - pb[2], pb[2]), 2, 2, byrow = TRUE)
   
-<<<<<<< HEAD
+  
+  ## set transition matrix, if applicable
+  if (!is.null(pb)){
+    P <- matrix(c(pb[1],1-pb[1],1-pb[2],pb[2]),2,2,byrow=TRUE)
+  } else{
+    P <- NULL
+  }
   
   ## lets see how the below works using the full-res bathymetry calculating likelihoods in parallel
   ## you can see i setup an if() to coarsen the bathy grid for those that moved offshore but
   ## i changed my mind given that all fish spend some time coastal and those particular movements
   ## likely will benefit from higher-res bathymetry
   #if (sp.lim$lonmin < 210){
-    ## if the fish made extensive movements offshore (to the west), coarsen the grid to ease computation
-    # bathy_resamp <- raster::resample(bathy, L.sst) # or whatever grid makes sense to resample to
+  ## if the fish made extensive movements offshore (to the west), coarsen the grid to ease computation
+  # bathy_resamp <- raster::resample(bathy, L.sst) # or whatever grid makes sense to resample to
   #  L.bathy <- calc.bathy(mmd, bathy_resamp, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
   #} else{
-    ## otherwise use the full resolution bathymetry for a fish that stayed more coastal
-    L.bathy <- calc.bathy.par(mmd, bathy, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
+  ## otherwise use the full resolution bathymetry for a fish that stayed more coastal
+  L.bathy <- calc.bathy.par(mmd, bathy, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
   #}
   
   gc()
-    
+  
   #L.ohc <- raster::brick('./L.ohc.grd')
   ## make list of rasters
   L.rasters <- list(L.light = L.light, L.sst = L.sst, L.ohc = L.ohc, L.bathy = L.bathy)
   save(L.rasters, file=paste0(meta$instrument_name[i],'_L.rasters_', format(Sys.Date(), '%Y%m%d'), '.rda'))
-    
+  
   ## resample rasters
   resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
   #L.rasters$L.ohc <- raster::shift(L.rasters$L.ohc, dx = 360)
   L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
   L.res$L.rasters$L.sst <- raster::resample(L.sst, L.res$L.rasters$L.sst)
   save(L.res, file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
-
+  
 }
 
 
@@ -627,9 +634,9 @@ for (tt in 1:length(run_idx)){
 
 id_idx <- which(meta$instrument_name %in%
                   c("172419_2004_B2381",
-                  "172419_2006_D1464",
-                  "172419_2003_A1973",
-                  "172419_2004_A2088"))
+                    "172419_2006_D1464",
+                    "172419_2003_A1973",
+                    "172419_2004_A2088"))
 
 ## redo SST, needs new L.sst
 id_idx <- which(meta$instrument_name %in%
@@ -642,13 +649,13 @@ id_idx <- which(meta$instrument_name %in%
 
 #for (i in 24:nrow(meta)){
 for (i in id_idx){
-
+  
   #if (meta$instrument_name[i] %in% c("172419_2004_B2381",
   #                                   "172419_2006_D1464",
   #                                   "172419_2003_A1973",
   #                                   "172419_2004_A2088",
   #                                   "172419_2003_390191")) next ## these need cut dates or other special attention
-   
+  
   ## temporal bounds
   iniloc <- data.frame(matrix(c(lubridate::day(meta$time_coverage_start[i]),
                                 lubridate::month(meta$time_coverage_start[i]),
@@ -733,35 +740,12 @@ for (i in id_idx){
   rm(L.sst); gc()
   
   #if (i == 1 | i == 2) L.res$L.rasters$L.ohc <- flip(L.res$L.rasters$L.ohc, 'y')
-=======
-  # RUN THE FILTER STEP
-  K <- list(K1, K2)
-  f <- hmm.filter(g = L.res$g, L = L, K = K, maskL = FALSE, P = P, m = 2)
-  nllf <- -sum(log(f$psi[f$psi > 0])) # negative log-likelihood
-  aic <- 2 * nllf + 2 * length(which(!is.na(pars)))
   
-  # RUN THE SMOOTHING STEP
-  s <- hmm.smoother(f, K = K, L = L, P = P)
-  
-  # GET THE MOST PROBABLE TRACK
-  tr <- calc.track(s, g = L.res$g, dateVec, iniloc)
-  plotHMM(s, tr, dateVec, ptt=paste(tt), save.plot = F)
-  
-  # WRITE OUT RESULTS
-  outVec <- matrix(c(tt, pars, aic = aic), ncol=6)
-  res <- list(outVec = outVec, s = s, g = L.res$g, tr = tr, dateVec = dateVec, iniloc = iniloc)
-  save(res, file=paste0(meta$instrument_name[i], '_', tt, '_HMMoce_res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
->>>>>>> 2597194652866eb91bd5bf3a16df89994df86710
-  
-  write.table(res$outVec, file=paste0(meta$instrument_name[i], '_HMMoce_results_', format(Sys.Date(), '%Y%m%d'), '.csv'), 
-              sep=',', append=T, row.names = F, col.names = F)
-  
-<<<<<<< HEAD
   if (exists('cut_date')){
     for (b in which(dateVec >= cut_date)) L.res$L.rasters$L.sst[[b]] <- L.res$L.rasters$L.sst[[b]] * NA
     for (b in which(dateVec >= cut_date)) L.res$L.rasters$L.ohc[[b]] <- L.res$L.rasters$L.ohc[[b]] * NA
   }
-   
+  
   ## each run idx combination
   for (tt in 1:length(run_idx)){
     
@@ -815,7 +799,7 @@ for (i in id_idx){
     #                          alg.opt = 'nlminb', 
     #                          write.results = FALSE)
     ## about 30 mins per iteration on blue shark 141259
-     
+    
     #ceiling(parallel::detectCores() * .9)
     #pars.ga.one <- opt.params(pars.init = c(2), 
     #                          lower.bounds = c(1), 
@@ -840,20 +824,20 @@ for (i in id_idx){
     #                          write.results = FALSE,
     #                          ncores = ceiling(parallel::detectCores() * .9))
     #ncores = 2)
-    
+    #g <- L.res$g; rm(L.res); gc()
     pars.ga <- HMMoce:::opt.params(pars.init = c(2,.2,.6,.8), 
-                          lower.bounds = c(0.1, 0.001, .1, .1), 
-                          upper.bounds = c(6, .6, .9, .9),
-                          max_iter = 100,
-                          run = 10,
-                          g = L.res$g, 
-                          #g = g.mle, 
-                          L = L, 
-                          #L = L.mle, 
-                          alg.opt = 'ga', 
-                          write.results = FALSE,
-                          ncores = 10)
-                          #ncores = ceiling(parallel::detectCores() / 2))
+                                   lower.bounds = c(0.1, 0.001, .1, .1), 
+                                   upper.bounds = c(6, .6, .9, .9),
+                                   max_iter = 25,
+                                   run = 10,
+                                   g = g, 
+                                   #g = g.mle, 
+                                   L = L, 
+                                   #L = L.mle, 
+                                   alg.opt = 'ga', 
+                                   write.results = FALSE,
+                                   ncores = 10)
+    #ncores = ceiling(parallel::detectCores() / 2))
     #ncores = ceiling(parallel::detectCores() * .9))
     # 10 out of 40 cores on m4.10xl
     # Time difference of 7.049704 hours for 0396
@@ -861,46 +845,69 @@ for (i in id_idx){
     #Time difference of 1.393883 days for 1090269
     
     pars <- pars.ga$par
-    sigmas = pars[1:2]
-    sizes = rep(ceiling(sigmas[1]*4),2)
-    pb = pars[3:4]
-    muadvs = c(0,0)
+    pars <- c(5.632570226,	0.2079976865,	0.548265906,	0.5986260097)
+    if (length(pars) == 4){
+      sigmas = pars[1:2]
+      sizes = rep(ceiling(sigmas[1]*4),2)
+      pb = pars[3:4]
+      muadvs = c(0,0)
+    } else if (length(pars) == 1){
+      sigmas = pars[1]
+      sizes = rep(ceiling(sigmas[1]*4),2)
+      pb = NULL
+      muadvs = c(0)
+    }
     
-    ## behav 1
+    # behav 1
     if(sizes[1]%%2==0){sizes[1]=sizes[1]+1}
     ss=sum(gausskern.nostd(sizes[1],sigmas[1],muadv=muadvs[1]))
     while(ss<.999){
       sizes[1]=sizes[1]+2
       ss=sum(gausskern.nostd(sizes[1],sigmas[1],muadv=muadvs[1]))
     }
-    K1 <- HMMoce:::gausskern.pg(sizes[1],sigmas[1],muadv=muadvs[1])
+    K1 = HMMoce:::gausskern.pg(sizes[1],sigmas[1],muadv=muadvs[1])
     rm(ss)
-    K1 <- HMMoce:::mask.K(K1)
+    K1=HMMoce:::mask.K(K1)
     
-    ## behav 2
-    if(sizes[2] %% 2 == 0) sizes[2] <- sizes[2] + 1
-    ss <- sum(gausskern.nostd(sizes[2], sigmas[2], muadv = muadvs[2]))
-    while(ss < .999){
-      sizes[2] <- sizes[2] + 2
-      ss <- sum(gausskern.nostd(sizes[2], sigmas[2], muadv = muadvs[2]))
+    # behav 2
+    if (!is.null(pb)){
+      if(sizes[2]%%2==0){sizes[2]=sizes[2]+1}
+      ss=sum(gausskern.nostd(sizes[2],sigmas[2],muadv=muadvs[2]))
+      while(ss<.999){
+        sizes[2]=sizes[2]+2
+        ss=sum(gausskern.nostd(sizes[2],sigmas[2],muadv=muadvs[2]))
+      }
+      K2 = HMMoce:::gausskern.pg(sizes[2],sigmas[2],muadv=muadvs[2])
+      rm(ss)
+      K2=HMMoce:::mask.K(K2)
     }
-    K2 <- HMMoce:::gausskern.pg(sizes[2], sigmas[2], muadv = muadvs[2])
-    K2 <- HMMoce:::mask.K(K2)
     
-    P <- matrix(c(pb[1], 1 - pb[1], 1 - pb[2], pb[2]), 2, 2, byrow = TRUE)
+    ## set transition matrix, if applicable
+    if (!is.null(pb)){
+      P <- matrix(c(pb[1],1-pb[1],1-pb[2],pb[2]),2,2,byrow=TRUE)
+    } else{
+      P <- NULL
+    }
+    
     
     # RUN THE FILTER STEP
-    K <- list(K1, K2)
-    f <- hmm.filter(g = L.res$g, L = L, K = K, maskL = FALSE, P = P, m = 2)
+    if (!is.null(pb)){
+      K=list(K1,K2)
+      f <- hmm.filter(g=L.res$g, L=L, K=K, maskL=FALSE, P=P, m=2)
+    } else{
+      K=list(K1)
+      f <- hmm.filter(g=L.res$g, L=L, K=K, maskL=FALSE, P=P, m=1)
+    }
     nllf <- -sum(log(f$psi[f$psi > 0])) # negative log-likelihood
     aic <- 2 * nllf + 2 * length(which(!is.na(pars)))
-     
+    
+    
     # RUN THE SMOOTHING STEP
     s <- hmm.smoother(f, K = K, L = L, P = P)
     
     # GET THE MOST PROBABLE TRACK
     tr <- calc.track(s, g = L.res$g, dateVec, iniloc)
-    plotHMM(s, tr, dateVec, ptt=paste(tt), save.plot = F)
+    #plotHMM(s, tr, dateVec, ptt=paste(tt), save.plot = F)
     
     # WRITE OUT RESULTS
     outVec <- matrix(c(tt, pars, aic = aic), ncol=6)
@@ -910,30 +917,21 @@ for (i in id_idx){
     write.table(res$outVec, file=paste0(meta$instrument_name[i], '_HMMoce_results_', format(Sys.Date(), '%Y%m%d'), '.csv'), 
                 sep=',', append=T, row.names = F, col.names = F)
     
-     
+    
     rm(s); rm(f); rm(pars.ga); rm(pars); rm(tr); rm(outVec); rm(L)
     gc()
     #load(file=past e0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
     
-     
-  } ## run_idxa
+    
+  } ## run_idx
   
   rm(L.rasters); rm(L.res); rm(L); rm(cut_date); gc()
   #file.remove(list.files(hycom.dir, full.names = T))
   #file.remove(list.files(sst.dir, full.names = T))
   
 } ## individual loop
-=======
-} ## run_idx
 
 file.remove(list.files(hycom.dir, full.names = T))
->>>>>>> 2597194652866eb91bd5bf3a16df89994df86710
-
-} ## individual loop
-
-## this should be the end of the model building and we're ready for model selection?
-
-## this should be the end of the model building and we're ready for model selection?
 
 
 
@@ -1341,7 +1339,6 @@ for (i in 1:nrow(meta)){
 }
 
 
-<<<<<<< HEAD
 
 ## assigning pseudo end location for 390191
 ## visually inspected:
@@ -1411,7 +1408,7 @@ for (i in 1:nrow(meta)){
 
 df <- read.table('~/ebs/Data/albacore/albacore_HMMoce_runs.csv', sep=',', header=F)
 names(df) <- c('tt','par1','par2','par3','par4','aic','build_date','instrument_name')
- 
+
 ## translate tt into actual runs
 # tt = 1: light + sst + ohc + bathy
 # tt = 2: light + sst + bathy
@@ -1426,5 +1423,28 @@ ggplot(df2, aes(fill=L, y=aic, x=instrument_name)) +
   geom_bar(position="dodge", stat="identity")
 
 
-=======
->>>>>>> 2597194652866eb91bd5bf3a16df89994df86710
+
+
+## RUN L BACKWARDS 
+
+L_backward = L[dim(L)[1]:1,,]
+
+f <- hmm.filter(g = L.res$g, L = L_backward, K = K, maskL = FALSE, P = P, m = 2)
+nllf <- -sum(log(f$psi[f$psi > 0])) # negative log-likelihood
+aic <- 2 * nllf + 2 * length(which(!is.na(pars)))
+
+# RUN THE SMOOTHING STEP
+s <- hmm.smoother(f, K = K, L = L_backward, P = P)
+s = s[,dim(s)[2]:1,,]
+tr <- calc.track(s, g = L.res$g, dateVec, iniloc)
+plotHMM(s, tr, dateVec, ptt=paste(tt), save.plot = F)
+
+
+fList[grep('_res', fList)]
+plotHMM(res$s, res$tr, res$dateVec, ptt=paste(tt), save.plot = F)
+
+
+plot(res1$tr$lon, res1$tr$lat, ylim=c(15,55)); 
+lines(res2$tr$lon, res2$tr$lat, col='red')
+lines(res3$tr$lon, res3$tr$lat, col='blue')
+world(add=T, wrap=c(0,360))
