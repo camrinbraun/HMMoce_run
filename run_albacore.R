@@ -1448,3 +1448,86 @@ plot(res1$tr$lon, res1$tr$lat, ylim=c(15,55));
 lines(res2$tr$lon, res2$tr$lat, col='red')
 lines(res3$tr$lon, res3$tr$lat, col='blue')
 world(add=T, wrap=c(0,360))
+
+library(tidyverse)
+library(ggforce)
+
+## model selection
+select <- read.table('~/ebs/Data/albacore/albacore_hmmoce_runs_selected.csv', sep=',', header=T)
+#select <- read.table('~/Google Drive/My Drive/Albacore - All Data/albacore_hmmoce_runs_selected.csv', sep=',', header=T)
+select <- select %>% filter(daic ==  0)
+#select <- res_df %>% group_by(ptt) %>% summarise(n=n(), maxT = max(run_date), aic = min(aic[which(run_date == max(run_date))]))
+#select$idx <- NA
+base_dir <- '~/ebs/RCode/HMMoce_run/'
+run_idx <- list(c(1:4),
+                c(1,2,4),
+                c(1,3,4),
+                c(1,4))
+
+#for (i in 1:nrow(select)){
+for (i in 11:21){
+  
+  work_dir <- paste0(base_dir,'/', select$instrument_name[i], '/')
+  setwd(work_dir)
+  fList <- list.files()
+  
+  #select$idx[i] <- res_df$tt[which(res_df$ptt == select$ptt[i] & res_df$aic == select$aic[i])]
+  #select$idx[i] <- which(lapply(run_idx, FUN=function(x) paste0(x, collapse=' ')) == select$run_idx[i])
+  
+  #file.copy(paste0(select$ptt[i], '_', select$idx[i], '_HMMoce_res_', select$run_date[i], '.rda'), '~/Google Drive/My Drive/farrugia_jws/')
+  
+  ## load res
+  load(paste0(select$instrument_name[i], '_', select$run_idx[i], '_HMMoce_res_', select$run_date[i], '.rda'))
+  
+  t1 <- Sys.time()
+  bnds <- HMMoce:::getCtr(res$s, res$tr, res$g, threshold = 5, makePlot=F)
+  t2 <- Sys.time()
+  t2 - t1
+  
+  tr <- cbind(res$tr, t(data.frame(lapply(bnds, FUN=function(x) c(x$yDist, x$xDist)))))
+  names(tr)[5:6] <- c('ydist','xdist')
+  tr$ydist[which(is.na(tr$ydist))] <- mean(tr$ydist, na.rm=T)
+  tr$xdist[which(is.na(tr$xdist))] <- mean(tr$xdist, na.rm=T)
+  tr <- tr %>% dplyr::select(date, lon, lat, ydist, xdist, p)
+  names(tr) <- c('DateTime','longitude','latitude','longitudeError','latitudeError', 'behav')
+  
+  xl <- c(min(res$g$lon), max(res$g$lon))
+  yl <- c(min(res$g$lat), max(res$g$lat))
+  
+  ## get world map data
+  world <- map_data('world2')
+  
+  ## simple map of move data
+  p1 <- ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+    coord_fixed(xlim=xl, ylim=yl, ratio=1.3) + xlab('') + ylab('') #+
+  
+  ##HMMoce
+  p1 <- p1 + geom_ellipse(data = tr, aes(x0 = longitude, y0 = latitude, a = longitudeError, b = latitudeError, angle = 0),
+                          alpha = 0.1, fill = 'grey', colour = 'grey') +
+    #geom_path(data = res$tr, aes(x = longitude, y = latitude), linetype = 'dashed', colour='black') +
+    geom_point(data = tr, aes(x = longitude, y = latitude, colour = DateTime))
+  
+  idx <- which(meta$instrument_name == select$instrument_name[i])
+  
+  ## start/end
+  #idx <- which(meta$ptt == select$ptt[i])
+  if (select$instrument_name[i] == '172419_2003_390191'){
+    p1 <- p1 + geom_point(data = res$iniloc, aes(x = make360(as.numeric(lon[1])), y = as.numeric(lat[1])), colour = c('green'), fill = c('green'), shape = 24) +
+      geom_point(data = res$iniloc, aes(x = make360(as.numeric(lon[2])), y = as.numeric(lat[2])), colour = c('red'), fill = c('red'), shape = 24) +
+      ggtitle(paste(select$instrument_name[i]))
+    
+  } else{
+    p1 <- p1 + geom_point(data = meta[idx,], aes(x = make360(as.numeric(geospatial_lon_start)), y = as.numeric(geospatial_lat_start)), colour = c('green'), fill = c('green'), shape = 24) +
+      geom_point(data = meta[idx,], aes(x = make360(as.numeric(geospatial_lon_end)), y = as.numeric(geospatial_lat_end)), colour = c('red'), fill = c('red'), shape = 24) +
+      ggtitle(paste(select$instrument_name[i]))
+  }
+  p1
+  ggsave(filename=paste0(select$instrument_name[i],'-HMMoce.png'))
+  
+  ## write best track
+  data.table::fwrite(tr, file=paste0(select$instrument_name[i],'-HMMoce.csv'), sep=',', col.names = TRUE, row.names = FALSE)
+  
+  rm(res); gc()
+}
+
+
