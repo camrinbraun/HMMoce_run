@@ -2,20 +2,20 @@
 ## INTRO STUFF
 #================
 
-#devtools::load_all('../HMMoce')
+devtools::load_all('../HMMoce')
 #devtools::install_github('camrinbraun/HMMoce', ref='dev')
-library(HMMoce)
+#library(HMMoce)
 #library(raster)
 library(tidyverse)
 #devtools::install_github('camrinbraun/tags2etuff')
 #library(tags2etuff)
 devtools::load_all('../tags2etuff') ## for etuff functionality
 #devtools::load_all('../analyzePSAT')
-source('../analyzePSAT/R/make360.R')
+#source('../analyzePSAT/R/make360.R')
 library(fields) ## for quick mapping
 library(raster)
 
-base_dir <- '~/work/RCode/HMMoce_run'
+base_dir <- '~/ebs/RCode/HMMoce_run'
 setwd(base_dir)
 
 meta <- read.table('../nip_drake/RawData/all_tag_meta.csv', sep=',', header=T, stringsAsFactors = F)
@@ -23,7 +23,7 @@ meta <- meta %>% filter(person_owner == 'Austin Gallagher' & instrument_type == 
 meta$time_coverage_start <- as.POSIXct(meta$time_coverage_start, tz = 'UTC')
 meta$time_coverage_end <- as.POSIXct(meta$time_coverage_end, tz = 'UTC')
 
-for (i in 1:nrow(meta)){
+for (i in 5:nrow(meta)){
   
   ## temporal bounds
   iniloc <- data.frame(matrix(c(lubridate::day(meta$time_coverage_start[i]),
@@ -48,8 +48,16 @@ for (i in 1:nrow(meta)){
   
   if (meta$instrument_name[i] == "160189_2019_183613"){
     limits <- list(lonmin=-85, lonmax=-70, latmin=18, latmax=30)
+  } else if (meta$instrument_name[i] == "160189_2019_183614"){
+    limits <- list(lonmin=-82, lonmax=-70, latmin=18, latmax=30)
+  } else if (meta$instrument_name[i] == '159924_2019_183823'){
+    limits <- list(lonmin=-77, lonmax=-66, latmin=23, latmax=45)
+  } else if (meta$instrument_name[i] == '160424_2019_183616'){
+    limits <- list(lonmin=-75, lonmax=-66, latmin=25, latmax=45)
+  } else if (meta$instrument_name[i] == '160424_2019_183615'){
+    limits <- list(lonmin=-77, lonmax=-55, latmin=20, latmax=45)
   }
-  
+    
   sp.lim <- limits
   
   ## setup the spatial grid to base likelihoods on
@@ -62,7 +70,7 @@ for (i in 1:nrow(meta)){
   sst.dir <- paste0('./tmp/sst/')
   if (!dir.exists(sst.dir)) dir.create(sst.dir, recursive = TRUE)
   for (b in 1:length(dateVec)){
-    if (!file.exists(paste0(sst.dir, '/', 'ghr_', dateVec[b], '.nc'))) get.env(dateVec[b], filename='ghr', type = 'sst', sst.type='mur', spatLim = sp.lim, save.dir = sst.dir)
+    if (!file.exists(paste0(sst.dir, '/', 'oi_', dateVec[b], '.nc'))) get.env(dateVec[b], filename='oi', type = 'sst', sst.type='oi', spatLim = sp.lim, save.dir = sst.dir)
   }
   
   hycom.dir <- paste0('./tmp/hycom/')
@@ -78,23 +86,38 @@ for (i in 1:nrow(meta)){
   
   
   bathy.dir <- paste0('./tmp/bathy/')
-  #if (!dir.exists(bathy.dir)) dir.create(bathy.dir, recursive = TRUE)
-  #if (!file.exists(paste0(bathy.dir, 'bathy.nc'))){
-  #  bathy <- HMMoce::get.bath.data(sp.lim, save.dir = bathy.dir, res=1)
-  #} else{ ## OR (once downloaded and reading the .nc later)
-  #bathy <- raster::raster('~/ebs/EnvData/bathy/global_bathy_0.01.nc')
+  if (!dir.exists(bathy.dir)) dir.create(bathy.dir, recursive = TRUE)
+  if (!file.exists(paste0(bathy.dir, 'bathy.nc'))){
+    bathy <- get.bath.data(sp.lim, save.dir = bathy.dir, res=1)
+    raster::writeRaster(bathy, paste0(bathy.dir, '/bathy.nc'), format='CDF', overwrite=TRUE, varname = 'topo')                
+  } else{ ## OR (once downloaded and reading the .nc later)
+    bathy <- raster::raster(paste0(bathy.dir, '/bathy.nc'))
+    #bathy <- raster::raster('~/ebs/EnvData/bathy/global_bathy_0.01.nc')
   #bathy <- raster::crop(bathy, raster::extent(unlist(sp.lim)))
-  #  raster::writeRaster(bathy, paste0(bathy.dir, '/bathy.nc'), format='CDF', overwrite=TRUE, varname = 'topo')                
-  #}
-  #print(i); gc()
-  bathy <- raster::raster(paste0(bathy.dir, '/bathy.nc'))
-  
-  data_dir <- paste0('~/Desktop/data_org/', meta$instrument_name[i],'/')
+  }
+
+  data_dir <- paste0('~/ebs/Data/data_org/', meta$instrument_name[i],'/')
   etuff_file <- paste(data_dir, meta$instrument_name[i], '_eTUFF.txt', sep='')
   
   etuff <- read_archival(etuff_file)
+  series <- get_series(etuff)
+  if (meta$instrument_name[i] == "160189_2019_183614") series <- series %>% filter(temperature > 0 & temperature < 35 & DateTime >= dateVec[2])
+  if (meta$instrument_name[i] == "160424_2019_183616") series <- series %>% filter(temperature > 0 & temperature < 25)# & DateTime >= dateVec[2])
   
   ## sst is Date, Temperature
+  sst <- data.frame(series %>% filter(!is.na(temperature)) %>% 
+                      group_by(as.Date(DateTime)) %>%
+                      summarise(n=n(),
+                                length_temp = length(temperature[which.min(depth)]),
+                                which_min = which.min(depth),
+                                sst = temperature[which.min(depth)],
+                                sst_depth = depth[which.min(depth)],
+                                sst_maxT = max(temperature, na.rm=T),
+                                sst_mean = mean(temperature[which(depth <= 2)])))
+  sst <- sst %>% dplyr::select(as.Date.DateTime., sst, sst_depth)
+  names(sst) <- c('Date','Temperature', 'sst_depth')
+  sst$Date <- as.POSIXct(sst$Date, tz='UTC')
+  
   sst2 <- archival_to_etuff(etuff$etuff, vars ='sst')
   sst2 <- sst2 %>% group_by(as.Date(DateTime)) %>% summarise(n=n(), Temperature = mean(sst, na.rm=T))#, mean_sst = mean(sstMean, na.rm=T))
   #sst2 <- sst2 %>% group_by(as.Date(DateTime)) %>% summarise(n=n(), Temperature = mean(sst, na.rm=T))
@@ -104,6 +127,7 @@ for (i in 1:nrow(meta)){
   #  if(is.nan(sst2$Temperature[b]) & !is.nan(sst2$mean_sst[b])) sst2$Temperature[b] <- sst2$mean_sst[b]
   #}
   sst2 <- sst2 %>% dplyr::select(Date, Temperature)
+  sst2 <- sst2[which(is.finite(sst2$Temperature) & !is.nan(sst2$Temperature)),]
   
   ## mmd is Date, MaxDepth
   mmd2 <- archival_to_etuff(etuff$etuff, vars ='depthMax')
@@ -112,9 +136,9 @@ for (i in 1:nrow(meta)){
   mmd2$Date <- as.POSIXct(mmd2$`as.Date(DateTime)`, tz='UTC')
   mmd2 <- mmd2 %>% dplyr::select(Date, depthMax) %>% as.data.frame()
   names(mmd2)[grep('depthMax', names(mmd2))] <- 'MaxDepth'
+  mmd2 <- mmd2[which(is.finite(mmd2$MaxDepth) & !is.nan(mmd2$MaxDepth)),]
   
   ## depth-temp profiles: Date, Depth, MeanTemp
-  series <- get_series(etuff)
   pdt <- data.frame(series %>% filter(!is.na(temperature)))
   pdt$Date <- as.Date(pdt$DateTime)
   hycom_depth <- c(0, 2, 4, 6, 8, 10, 12, 15, 20, 25,
@@ -137,8 +161,17 @@ for (i in 1:nrow(meta)){
   ## get light locs
   tr <- get_track(etuff)
   #tr$lon2 <- make360(tr$longitude)
-  auto_drop <- which(tr$longitude > -50 | tr$longitude < -100 | tr$latitude > 30)
+  if (meta$instrument_name[i] == "160189_2019_183613"){
+    auto_drop <- which(tr$longitude > -50 | tr$longitude < -100 | tr$latitude > 30)
+  } else if (meta$instrument_name[i] == '160424_2019_183616'){
+    auto_drop <- which(tr$longitude > -50 | tr$longitude < -100)
+  } else if (meta$instrument_name[i] == '160424_2019_183615'){
+    auto_drop <- which(tr$longitude > -50 | tr$longitude < -90)
+  } else{
+    auto_drop <- NULL
+  }
   if (length(auto_drop) > 0) tr <- tr[-auto_drop,]
+  rm(auto_drop)
   #if (all(!is.na(drop_vec))) tr <- tr[-drop_vec,]
   ## then we won't have error estimates. Musyl error estimates will be applied automatically in the likelihood calc
   tr$Offset <- 0
@@ -165,48 +198,58 @@ for (i in 1:nrow(meta)){
   p1
   
   ## LIGHT
-  L.light <- calc.lightloc(tr, locs.grid = locs.grid, dateVec = dateVec, errEll = TRUE)
+  if (meta$instrument_name[i] == '159924_2019_183823' | meta$instrument_name[i] == '160424_2019_183616' |
+      meta$instrument_name[i] == '160424_2019_183615'){
+    L.light <- calc.lightloc(tr, locs.grid = locs.grid, dateVec = dateVec, errEll = FALSE)
+  } else{
+    L.light <- calc.lightloc(tr, locs.grid = locs.grid, dateVec = dateVec, errEll = TRUE)
+  }
 
   ## SST
-  #L.sst <- calc.sst.par(sst, filename='oi', sst.dir = sst.dir, dateVec = dateVec[1:10], sens.err = 3, focalDim = 3)
-  L.sst <- calc.sst.par(sst2, filename='oi', sst.dir = sst.dir, dateVec = dateVec, sens.err = 3, focalDim = 3)
+  L.sst <- calc.sst.par(sst, filename='oi', sst.dir = sst.dir, dateVec = dateVec, sens.err = 3, focalDim = 3)
+  #L.sst_hycom <- calc.sst.par_hycom(sst, filename='hycom', sst.dir = hycom.dir, dateVec = dateVec[1:5], sens.err = 3, focalDim = 9)
  
   # OCEAN HEAT CONTENT (INTEGRATED PDTS)
-  L.ohc <- calc.ohc(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec[3], isotherm = '', use.se = F)
+  #L.ohc <- calc.ohc(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec[3], isotherm = '', use.se = F)
   #L.ohc <- calc.ohc.par(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec, isotherm = '', use.se = F)
   L.ohc <- calc.ohc.par(pdt, filename='hycom', ohc.dir = hycom.dir, dateVec = dateVec, 
-                        isotherm = '', use.se = F)#, ncores = 30)
+                        isotherm = '', use.se = F)
   #writeRaster(L.ohc, filename = paste0(work_dir, 'L.ohc.grd'), format='raster')
 
   # HYCOM PROFILE BASED LIKELIHOODS
   #L.hycom <- calc.hycom(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:3], use.se = T)
   #L.hycom.se <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec[1:3], use.se = T)
-  L.hycom.par <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec, use.se = F)#, ncores=2)
+  L.hycom <- calc.hycom.par(pdt, filename='hycom', hycom.dir, focalDim = 9, dateVec = dateVec, use.se = T)#, ncores=2)
   
   
   L.bathy <- calc.bathy(mmd2, bathy, dateVec, focalDim = 3, sens.err = 5, lik.type = 'max')
   
   ## make list of rasters
-  L.rasters <- list(L.light = L.light, L.sst = L.sst, L.ohc = L.ohc, L.bathy = L.bathy)
-  
-  ## resample rasters
-  resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
-  L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
-  save(L.res, file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
+  L.rasters <- list(L.light = L.light, L.sst = L.sst, L.ohc = L.ohc, L.hycom = L.hycom, L.bathy = L.bathy)
   save(L.rasters, file=paste0(meta$instrument_name[i],'_L.rasters_', format(Sys.Date(), '%Y%m%d'), '.rda'))
   
-  load(file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
+  ## resample rasters
+  #resamp.idx <- which.max(lapply(L.rasters, FUN=function(x) raster::res(x)[1]))
+  resamp.idx <- 1
+  L.res <- resample.grid(L.rasters, L.rasters[[resamp.idx]])
+  save(L.res, file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
+  
+  rm(L.ohc); rm(L.hycom); rm(L.sst); rm(L.light); rm(L.bathy); rm(L.rasters); gc()
+  #load(file=paste0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
   
   
-  run_idx <- list(c(1:4),
-                  c(1,2,4),
-                  c(1,3,4),
-                  c(1,4),
-                  c(1),
-                  c(1:2))
+  run_idx <- list(c(1:3,5),
+                  c(1,2,4,5),
+                  c(1,3,5),
+                  c(1,4,5),
+                  c(1,5),
+                  c(1,2,5),
+                  c(1:2),
+                  c(1))
   
   ## each run idx combination
-  for (tt in 1:length(run_idx)){
+  for (tt in 2:6){
+  #for (tt in 1:length(run_idx)){
     
     #iniloc$lon <- make360(iniloc$lon)
     L <- make.L(L.res$L.rasters[run_idx[[tt]]], iniloc, dateVec)
@@ -250,17 +293,17 @@ for (i in 1:nrow(meta)){
     
     #ceiling(parallel::detectCores() * .9)
     pars.ga.one <- HMMoce:::opt.params(pars.init = c(2), 
-                                       lower.bounds = c(1), 
+                                       lower.bounds = c(.1), 
                                        upper.bounds = c(8), 
+                                       max_iter = 20,
                                        g = L.res$g, 
-                                       #                          #g = g.mle, 
+    #                                   #                          #g = g.mle, 
                                        L = L, 
-                                       #                          #L = L.mle, 
+    #                                   #                          #L = L.mle, 
                                        alg.opt = 'ga', 
                                        write.results = FALSE,
                                        ncores = ceiling(parallel::detectCores() * .9))
     #ncores = 2)
-    
     #pars.ga.mle <- opt.params(pars.init = c(2,.2,.6,.8), 
     #                          lower.bounds = c(0.1, 0.001, .1, .1), 
     #                          upper.bounds = c(6, .6, .9, .9), 
@@ -273,18 +316,18 @@ for (i in 1:nrow(meta)){
     #                          ncores = ceiling(parallel::detectCores() * .9))
     #ncores = 2)
     
-    pars.ga <- HMMoce:::opt.params(pars.init = c(2,.2,.6,.8), 
-                                   lower.bounds = c(0.1, 0.001, .1, .1), 
-                                   upper.bounds = c(6, .6, .9, .9),
-                                   max_iter = 10,
-                                   run = 10,
-                                   g = L.res$g, 
-                                   #g = g.mle, 
-                                   L = L, 
-                                   #L = L.mle, 
-                                   alg.opt = 'ga', 
-                                   write.results = FALSE,
-                                   ncores = 8)
+    #pars.ga <- HMMoce:::opt.params(pars.init = c(2,.2,.6,.8), 
+    #                               lower.bounds = c(0.1, 0.001, .1, .1), 
+    #                               upper.bounds = c(10, 1, .9, .9),
+    #                               max_iter = 10,
+    #                               run = 10,
+    #                               g = L.res$g, 
+    #                               #g = g.mle, 
+    #                               L = L, 
+    #                               #L = L.mle, 
+    #                               alg.opt = 'ga', 
+    #                               write.results = FALSE)#,
+    #                               #ncores = 8)
     
     
     #pars <- pars.ga$par
@@ -352,18 +395,22 @@ for (i in 1:nrow(meta)){
     
     # GET THE MOST PROBABLE TRACK
     tr <- calc.track(s, g = L.res$g, dateVec, iniloc)
-    #plotHMM(s, tr, dateVec, ptt=paste(tt), save.plot = F)
+    #plotHMM(res$s, res$tr, res$dateVec, ptt=paste(tt), save.plot = F)
     
     # WRITE OUT RESULTS
-    outVec <- matrix(c(tt, pars, aic = aic), ncol=6)
+    if (length(pars) == 4){
+      outVec <- matrix(c(tt, pars, aic = aic), ncol=6)
+    } else if (length(pars) == 1){
+      outVec <- matrix(c(tt, pars, aic = aic), ncol=3)
+    }
     res <- list(outVec = outVec, s = s, g = L.res$g, tr = tr, dateVec = dateVec, iniloc = iniloc)
     save(res, file=paste0(meta$instrument_name[i], '_', tt, '_HMMoce_res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
     
     write.table(res$outVec, file=paste0(meta$instrument_name[i], '_HMMoce_results_', format(Sys.Date(), '%Y%m%d'), '.csv'), 
                 sep=',', append=T, row.names = F, col.names = F)
     
-    
-    rm(s); rm(f); rm(pars.ga); rm(pars); rm(tr); rm(outVec); rm(L)
+    s
+    rm(s); rm(f); rm(pars.ga.one); rm(pars); rm(tr); rm(outVec); rm(L)
     gc()
     #load(file=past e0(meta$instrument_name[i],'_L.res_', format(Sys.Date(), '%Y%m%d'), '.rda'))
     
@@ -378,5 +425,11 @@ for (i in 1:nrow(meta)){
 
 file.remove(list.files(hycom.dir, full.names = T))
 
+## selection
+# "160189_2019_183613" tt = 6, pars.ga.one
+# "160189_2019_183614" tt = 7, pars.ga.one
+# "159924_2019_183823" tt = 3, pars.ga.one
+# "160424_2019_183616" tt = 3, pars.ga.one
+# "160424_2019_183615" tt=7,  pars.ga.one
 
 
